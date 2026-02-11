@@ -6,7 +6,7 @@ from datetime import datetime
 def scrape_with_ntscraper():
     nitter = Nitter()
     # Updated query for US News and Politics
-    query = "(US news OR American politics OR White House) lang:en"
+    query = "(Trump) lang:en"
     
     print(f"Starting scrape for US focus: {query}")
     
