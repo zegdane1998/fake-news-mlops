@@ -2,12 +2,19 @@ name: Scrape and Monitor
 
 on:
   schedule:
-    - cron: '0 0 * * 0' # Weekly trigger: Sunday at midnight
-  workflow_dispatch: # Manual trigger for your thesis demo
+    - cron: '0 0 * * 0'
+  workflow_dispatch:
+
+# FIX 3: Give the runner write permissions
+permissions:
+  contents: write
 
 jobs:
   monitor_pipeline:
     runs-on: ubuntu-latest
+    env:
+      # FIX 1: Set PYTHONPATH globally for the job
+      PYTHONPATH: ${{ github.workspace }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
@@ -20,33 +27,35 @@ jobs:
       - name: Install Dependencies
         run: |
           pip install -r requirements.txt
-          pip install tweepy pytest # Ensure scraping and testing tools are there
+          pip install tweepy pytest python-dotenv
+
+      - name: Create Directory Structure
+        # FIX 2: Ensure data paths exist for training
+        run: mkdir -p data/raw data/processed data/new_scraped models
 
       - name: Run Scraper
         env:
-          X_BEARER_TOKEN: ${{ secrets.X_BEARER_TOKEN }} # Securely inject your token
+          X_BEARER_TOKEN: ${{ secrets.X_BEARER_TOKEN }}
         run: python src/realtime_scraper.py
 
       - name: Monitor Performance
         id: monitoring
-        # This script returns an exit code of 1 if accuracy is below 90%
         run: python src/monitor.py
-        continue-on-error: true # We don't want the build to "fail", just trigger the next step
+        continue-on-error: true
 
       - name: Trigger Retraining
-        # Only run if monitor.py signaled an accuracy drop (exit code 1)
         if: steps.monitoring.outcome == 'failure'
         run: |
-          echo "Accuracy dropped below 90%. Starting retraining..."
+          # If retraining needs the original data, ensure ingestion runs first
+          python src/ingestion.py 
+          python src/preprocessing.py
           python src/train.py
           
       - name: Commit and Push Updates
         if: always()
         run: |
-          git config --global user.name "GitHub Action"
-          git config --global user.email "action@github.com"
-          # Create the directory and a dummy file if it's empty to prevent Git errors
-          mkdir -p data/new_scraped/
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
           touch data/new_scraped/.gitkeep
           git add data/new_scraped/ models/
           git commit -m "Automated CT: Updated data and model artifacts" || echo "No changes to commit"
