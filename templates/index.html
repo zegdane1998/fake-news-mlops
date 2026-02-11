@@ -1,0 +1,52 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Fake News Detector - Thesis Demo</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="dashboard">
+        <header>
+            <h1>Real-Time Political Fake News Detector</h1>
+            <p>Master's Thesis Project | Işık Üniversitesi</p>
+        </header>
+        
+        <main>
+            <div class="input-card">
+                <h2>Analyze a Tweet</h2>
+                <textarea id="tweetInput" placeholder="Paste a political news title or tweet here..."></textarea>
+                <button onclick="analyzeTweet()">Analyze Now</button>
+            </div>
+
+            <div class="result-card" id="resultCard" style="display: none;">
+                <h3>Prediction Result</h3>
+                <div id="verdictLabel" class="verdict"></div>
+                <p>Confidence Score: <span id="confidenceValue"></span></p>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        async function analyzeTweet() {
+            const text = document.getElementById('tweetInput').value;
+            const resCard = document.getElementById('resultCard');
+            
+            // Call your FastAPI /predict endpoint
+            const response = await fetch('/predict', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text: text })
+            });
+            
+            const data = await response.json();
+            
+            // Update UI with CNN results
+            resCard.style.display = 'block';
+            document.getElementById('verdictLabel').innerText = data.verdict;
+            document.getElementById('verdictLabel').className = 'verdict ' + data.verdict.toLowerCase();
+            document.getElementById('confidenceValue').innerText = (data.confidence * 100).toFixed(2) + '%';
+        }
+    </script>
+</body>
+</html>

@@ -12,3 +12,12 @@ stages:
       - src/preprocessing.py
     outs:
       - data/processed/gossipcop_cleaned.csv
+  train:
+    cmd: python src/train.py
+    deps:
+      - data/processed/gossipcop_cleaned.csv
+      - src/train.py
+    outs:
+      - models/cnn_v1.h5
+      - models/tokenizer.pkl
+
