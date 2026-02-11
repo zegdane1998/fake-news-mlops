@@ -1,0 +1,30 @@
+schema: '2.0'
+stages:
+  ingest:
+    cmd: python src/ingestion.py
+    deps:
+    - path: src/ingestion.py
+      hash: md5
+      md5: b8b0a5bba90d547bfe6f481911e098c9
+      size: 1219
+    outs:
+    - path: data/raw/gossipcop_combined.csv
+      hash: md5
+      md5: 0e22c46bc3a64d187c8c9f77e7d22760
+      size: 32583229
+  preprocess:
+    cmd: python src/preprocessing.py
+    deps:
+    - path: data/raw/gossipcop_combined.csv
+      hash: md5
+      md5: 0e22c46bc3a64d187c8c9f77e7d22760
+      size: 32583229
+    - path: src/preprocessing.py
+      hash: md5
+      md5: f8779b92a31fdde3d2b6a9a49019d825
+      size: 994
+    outs:
+    - path: data/processed/gossipcop_cleaned.csv
+      hash: md5
+      md5: c6ddb3e387cab6c3d671da06fb433f18
+      size: 1592118
