@@ -41,10 +41,13 @@ jobs:
           python src/train.py
           
       - name: Commit and Push Updates
-        if: always() # Always update the dashboard with latest scrape info
+        if: always()
         run: |
           git config --global user.name "GitHub Action"
           git config --global user.email "action@github.com"
+          # Create the directory and a dummy file if it's empty to prevent Git errors
+          mkdir -p data/new_scraped/
+          touch data/new_scraped/.gitkeep
           git add data/new_scraped/ models/
           git commit -m "Automated CT: Updated data and model artifacts" || echo "No changes to commit"
           git push
