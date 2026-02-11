@@ -31,6 +31,7 @@ def get_pipeline_status():
         return last_scrape, status
     except Exception:
         return "Not available", "Error"
+    return last_scrape, status, "United States"
 
 @app.get("/")
 async def home(request: Request):

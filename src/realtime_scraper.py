@@ -5,13 +5,13 @@ from datetime import datetime
 
 def scrape_with_ntscraper():
     nitter = Nitter()
-    # Search for broader political terms to ensure we find news
-    query = "politics news Istanbul"
+    # Updated query for US News and Politics
+    query = "(US news OR American politics OR White House) lang:en"
     
-    print(f"Starting scrape for: {query}")
+    print(f"Starting scrape for US focus: {query}")
     
     try:
-        # Scrape 10 tweets from a public Nitter instance
+        # Pull 10 tweets from a Nitter instance
         results = nitter.get_tweets(query, mode='term', number=10)
         
         tweets_data = []
@@ -24,14 +24,12 @@ def scrape_with_ntscraper():
         if tweets_data:
             df = pd.DataFrame(tweets_data)
             os.makedirs("data/new_scraped", exist_ok=True)
+            # Keeping the same naming convention for your pipeline
             filename = f"data/new_scraped/tweets_{datetime.now().strftime('%Y%m%d_%H%M')}.csv"
             df.to_csv(filename, index=False)
-            print(f"Successfully saved {len(df)} tweets to {filename}")
-        else:
-            print("No tweets found. All instances might be down.")
-
+            print(f"Successfully saved {len(df)} US-focused tweets.")
     except Exception as e:
-        print(f"Nitter Scraper error: {e}")
+        print(f"Scraper error: {e}")
 
 if __name__ == "__main__":
     scrape_with_ntscraper()
