@@ -1,0 +1,50 @@
+name: Scrape and Monitor
+
+on:
+  schedule:
+    - cron: '0 0 * * 0' # Weekly trigger: Sunday at midnight
+  workflow_dispatch: # Manual trigger for your thesis demo
+
+jobs:
+  monitor_pipeline:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install Dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install tweepy pytest # Ensure scraping and testing tools are there
+
+      - name: Run Scraper
+        env:
+          X_BEARER_TOKEN: ${{ secrets.X_BEARER_TOKEN }} # Securely inject your token
+        run: python src/realtime_scraper.py
+
+      - name: Monitor Performance
+        id: monitoring
+        # This script returns an exit code of 1 if accuracy is below 90%
+        run: python src/monitor.py
+        continue-on-error: true # We don't want the build to "fail", just trigger the next step
+
+      - name: Trigger Retraining
+        # Only run if monitor.py signaled an accuracy drop (exit code 1)
+        if: steps.monitoring.outcome == 'failure'
+        run: |
+          echo "Accuracy dropped below 90%. Starting retraining..."
+          python src/train.py
+          
+      - name: Commit and Push Updates
+        if: always() # Always update the dashboard with latest scrape info
+        run: |
+          git config --global user.name "GitHub Action"
+          git config --global user.email "action@github.com"
+          git add data/new_scraped/ models/
+          git commit -m "Automated CT: Updated data and model artifacts" || echo "No changes to commit"
+          git push
