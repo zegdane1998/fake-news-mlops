@@ -1,0 +1,14 @@
+stages:
+  ingest:
+    cmd: python src/ingestion.py
+    deps:
+      - src/ingestion.py
+    outs:
+      - data/raw/gossipcop_combined.csv
+  preprocess:
+    cmd: python src/preprocessing.py
+    deps:
+      - data/raw/gossipcop_combined.csv
+      - src/preprocessing.py
+    outs:
+      - data/processed/gossipcop_cleaned.csv

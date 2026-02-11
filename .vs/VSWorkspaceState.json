@@ -1,8 +1,11 @@
 {
   "ExpandedNodes": [
     "",
-    "\\src"
+    "\\.github",
+    "\\.github\\workflows",
+    "\\src",
+    "\\tests"
   ],
-  "SelectedNode": "\\src\\ingestion.py",
+  "SelectedNode": "\\.github\\workflows\\main.yml",
   "PreviewInSolutionExplorer": false
 }
