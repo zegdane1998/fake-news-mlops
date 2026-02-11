@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Real-Time Fake News Detector | MLOps Thesis</title>
+    <title>Fake News Detector | MLOps Thesis</title>
     <link rel="stylesheet" href="/static/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
@@ -11,88 +11,64 @@
     <div class="dashboard">
         <header>
             <h1><i class="fa-solid fa-shield-halved"></i> Political Fake News Detector</h1>
-            <p>Master's Thesis Project | Continuous Deployment Pipeline</p>
+            <p>Master's Thesis | Işık Üniversitesi | Eyüpsultan, Istanbul</p>
         </header>
+
+        <section class="status-bar">
+            <div class="status-item">
+                <i class="fa-solid fa-calendar-check"></i>
+                <span>Last Automation Sync: <strong>{{ last_scrape }}</strong></span>
+            </div>
+            <div class="status-item">
+                <i class="fa-solid fa-heart-pulse"></i>
+                <span>Model Health: <strong class="badge {{ model_status.lower() }}">{{ model_status }}</strong></span>
+            </div>
+        </section>
         
         <main>
             <div class="input-card">
-                <h2><i class="fa-brands fa-x-twitter"></i> Paste News Headline</h2>
-                <textarea id="tweetInput" placeholder="Enter a political news title or tweet to verify its authenticity..."></textarea>
-                <button id="analyzeBtn" onclick="analyzeTweet()">
-                    <i class="fa-solid fa-magnifying-glass-chart"></i> Run CNN Analysis
-                </button>
+                <h2>Paste News Headline</h2>
+                <textarea id="tweetInput" placeholder="Enter a headline or tweet to verify..."></textarea>
+                <button id="analyzeBtn" onclick="analyzeTweet()">Run CNN Analysis</button>
             </div>
 
             <div class="result-card" id="resultCard" style="display: none;">
-                <div class="result-header">
-                    <h3>Analysis Verdict</h3>
-                    <div id="verdictLabel" class="verdict"></div>
+                <div id="verdictLabel" class="verdict"></div>
+                <div class="confidence-gauge">
+                    <label>Confidence: <span id="confidenceValue"></span></label>
+                    <div class="progress-bar"><div id="confidenceFill" class="progress-fill"></div></div>
                 </div>
-                
-                <div class="stats-container">
-                    <div class="stat-item">
-                        <label>Confidence Score</label>
-                        <div class="progress-bar">
-                            <div id="confidenceFill" class="progress-fill"></div>
-                        </div>
-                        <span id="confidenceValue">0%</span>
-                    </div>
-                    
-                    <div class="stat-item">
-                        <label>Preprocessed Text (Cleaned)</label>
-                        <p id="cleanedTextPreview" class="cleaned-text"></p>
-                    </div>
-                </div>
+                <p><strong>Processed Text:</strong> <em id="cleanedText"></em></p>
             </div>
         </main>
-
-        <footer>
-            <p>Model: CNN-v1 | Dataset: GossipCop Combined | Location: Eyüpsultan, Istanbul</p>
-        </footer>
     </div>
 
     <script>
         async function analyzeTweet() {
-            const btn = document.getElementById('analyzeBtn');
             const text = document.getElementById('tweetInput').value;
+            if (!text.trim()) return;
+
             const resCard = document.getElementById('resultCard');
-            
-            if (!text.trim()) return alert("Please enter text to analyze.");
-
-            // UI Feedback: Loading State
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Processing...';
+            const btn = document.getElementById('analyzeBtn');
             btn.disabled = true;
+            btn.innerText = "Processing...";
 
-            try {
-                // Fetch prediction from your FastAPI endpoint
-                const response = await fetch('/predict', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ text: text })
-                });
-                
-                const data = await response.json();
-                
-                // Update UI with real-time results
-                resCard.style.display = 'block';
-                document.getElementById('verdictLabel').innerText = data.verdict;
-                document.getElementById('verdictLabel').className = 'verdict ' + data.verdict.toLowerCase();
-                
-                // Update Confidence Gauge
-                const confidence = (data.confidence * 100).toFixed(2);
-                document.getElementById('confidenceValue').innerText = confidence + '%';
-                document.getElementById('confidenceFill').style.width = confidence + '%';
-                
-                // Show cleaned text to prove preprocessing logic
-                document.getElementById('cleanedTextPreview').innerText = data.cleaned_text;
+            const response = await fetch('/predict', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text: text })
+            });
+            const data = await response.json();
 
-            } catch (error) {
-                console.error("Error:", error);
-                alert("API Connection Error. Ensure the server is running.");
-            } finally {
-                btn.innerHTML = '<i class="fa-solid fa-magnifying-glass-chart"></i> Run CNN Analysis';
-                btn.disabled = false;
-            }
+            resCard.style.display = 'block';
+            document.getElementById('verdictLabel').innerText = data.verdict;
+            document.getElementById('verdictLabel').className = 'verdict ' + data.verdict.replace(" ", "-").toLowerCase();
+            document.getElementById('confidenceValue').innerText = (data.confidence * 100).toFixed(2) + "%";
+            document.getElementById('confidenceFill').style.width = (data.confidence * 100) + "%";
+            document.getElementById('cleanedText').innerText = data.cleaned_text;
+            
+            btn.disabled = false;
+            btn.innerText = "Run CNN Analysis";
         }
     </script>
 </body>
