@@ -26,7 +26,7 @@ jobs:
       - name: Install Dependencies
         run: |
           pip install -r requirements.txt
-          pip install git+https://github.com/JustAnotherArchivist/snscrape.git
+          pip install ntscraper
 
       - name: Create Directory Structure
         # FIX 2: Ensure data paths exist for training
