@@ -24,6 +24,28 @@
                 <p>United States</p>
             </div>
         </section>
+
+        <section class="automated-results">
+            <h2><i class="fa-solid fa-robot"></i> Latest Scraped Analysis (US Focus)</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Tweet Content</th>
+                        <th>Verdict</th>
+                        <th>Confidence</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for res in scraped_results %}
+                    <tr>
+                        <td class="tweet-text">{{ res.original }}</td>
+                        <td><span class="badge {{ res.verdict.lower() }}">{{ res.verdict }}</span></td>
+                        <td>{{ res.confidence }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </section>
         
         <main>
             <div class="input-card">
