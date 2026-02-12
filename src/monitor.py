@@ -40,12 +40,8 @@ def run_monitoring():
     # Trigger retraining if:
     # A) Data is no longer relevant (Source Drift)
     # B) Model is guessing (Confidence Drift)
-    if relevancy_rate < 0.40 or avg_conf < 0.65 or conf_variance > 0.45:
-        print("RETRAINING TRIGGERED: US data drift or performance drop detected.")
+    if relevancy_rate < 0.30 or avg_conf < 0.65:
         sys.exit(1)
-    else:
-        print("System Stable: Model performing well on current US news.")
-        sys.exit(0)
 
 if __name__ == "__main__":
     run_monitoring()

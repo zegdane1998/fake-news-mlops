@@ -4,22 +4,23 @@ import os
 from datetime import datetime
 from dotenv import load_dotenv
 
+# Load local .env for Eyüpsultan testing
 load_dotenv()
 
 def scrape_us_politics():
-    # Retrieve the secret we saved in GitHub/local .env
     bearer_token = os.getenv("X_BEARER_TOKEN")
     if not bearer_token:
-        print("Error: X_BEARER_TOKEN not found.")
+        print("Error: X_BEARER_TOKEN missing.")
         return
 
+    # Initialize X API v2 Client
     client = tweepy.Client(bearer_token=bearer_token)
     
-    # Query focused on US high-traffic political terms
+    # Query: High-traffic US terms to guarantee data for your demo
     query = "(US News OR White House OR Congress) lang:en -is:retweet"
     
     try:
-        # Max results 10 is the limit for Free Tier
+        print(f"Connecting to X API for query: {query}")
         tweets = client.search_recent_tweets(query=query, max_results=10)
         
         data = []
@@ -34,14 +35,14 @@ def scrape_us_politics():
             os.makedirs("data/new_scraped", exist_ok=True)
             filename = f"data/new_scraped/tweets_{datetime.now().strftime('%Y%m%d_%H%M')}.csv"
             df.to_csv(filename, index=False)
-            print(f"Successfully scraped {len(df)} US tweets.")
+            print(f"Successfully saved {len(df)} US tweets to CSV.")
         else:
-            print("No new tweets found for the US query.")
+            print("No tweets found. X API might be returning empty for this query.")
             
     except tweepy.errors.TooManyRequests:
-        print("Rate limit reached (429). Wait 15 minutes.")
+        print("Rate limit (429) hit. Please wait 15 minutes.")
     except Exception as e:
-        print(f"An error occurred: {e}")
+        print(f"Scraper error: {e}")
 
 if __name__ == "__main__":
     scrape_us_politics()
