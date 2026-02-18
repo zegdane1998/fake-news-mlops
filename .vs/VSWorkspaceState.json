@@ -3,7 +3,11 @@
     "",
     "\\.github",
     "\\.github\\workflows",
+    "\\data",
+    "\\data\\new_scraped",
+    "\\models",
     "\\src",
+    "\\templates",
     "\\tests"
   ],
   "SelectedNode": "\\.github\\workflows\\main.yml",

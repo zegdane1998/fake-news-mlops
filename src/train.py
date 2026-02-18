@@ -31,7 +31,7 @@ def train():
         layers.Conv1D(128, 5, activation='relu'),
         layers.GlobalMaxPooling1D(),
         layers.Dense(64, activation='relu'),
-        layers.Dropout(0.5), # Engineering best practice to prevent overfitting
+        layers.Dropout(0.5), 
         layers.Dense(1, activation='sigmoid')
     ])
 

@@ -3,95 +3,134 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fake News Detector | MLOps Thesis</title>
-    <link rel="stylesheet" href="/static/style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <title>MLOps Fake News Monitor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { background: #0f172a; color: #f8fafc; font-family: 'Inter', sans-serif; }
+        .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); }
+    </style>
 </head>
-<body>
-    <div class="dashboard">
-        <header>
-            <h1><i class="fa-solid fa-shield-halved"></i> Political Fake News Detector</h1>
-            <p>Master's Thesis | Işık Üniversitesi | Eyüpsultan, Istanbul</p>
-        </header>
+<body class="p-8">
+    <header class="max-w-6xl mx-auto mb-8 flex justify-between items-center">
+        <div>
+            <h1 class="text-3xl font-bold text-blue-400">Political Fake News Detector</h1>
+            <p class="text-slate-400">Master's Thesis | Işık Üniversitesi | {{ region }}</p>
+        </div>
+        <div class="glass p-4 rounded-xl text-right">
+            <p class="text-xs uppercase text-slate-500">Last Automation Sync</p>
+            <p class="font-mono text-blue-300">{{ last_sync }}</p>
+        </div>
+    </header>
 
-        <section class="status-bar">
-            <div class="status-item">
-                <i class="fa-solid fa-calendar-check"></i>
-                <span>Last Automation Sync: <strong>{{ last_scrape }}</strong></span>
-            </div>
-            <div class="status-item">
-                <label>Target Region</label>
-                <p>United States</p>
-            </div>
-        </section>
-
-        <section class="automated-results">
-            <h2><i class="fa-solid fa-robot"></i> Latest Scraped Analysis (US Focus)</h2>
-            <table>
+    <section class="max-w-6xl mx-auto mb-8 glass p-6 rounded-2xl">
+        <h2 class="text-xl font-semibold mb-4 text-blue-300">Latest Live Analysis (US Focus)</h2>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left">
                 <thead>
-                    <tr>
-                        <th>Tweet Content</th>
-                        <th>Verdict</th>
-                        <th>Confidence</th>
+                    <tr class="border-b border-slate-700 text-slate-400 text-sm">
+                        <th class="pb-3 px-2 w-2/3">Tweet Content</th>
+                        <th class="pb-3 px-2">Verdict</th>
+                        <th class="pb-3 px-2 text-right">Confidence</th>
                     </tr>
                 </thead>
-                <tbody>
-                    {% for res in scraped_results %}
-                    <tr>
-                        <td class="tweet-text">{{ res.original }}</td>
-                        <td><span class="badge {{ res.verdict.lower() }}">{{ res.verdict }}</span></td>
-                        <td>{{ res.confidence }}</td>
+                <tbody class="text-sm">
+                    {% for tweet in tweets %}
+                    <tr class="border-b border-slate-800 hover:bg-slate-800/50 transition">
+                        <td class="py-4 px-2 text-slate-300">{{ tweet.text }}</td>
+                        <td class="py-4 px-2 font-bold {{ tweet.color }}">{{ tweet.verdict }}</td>
+                        <td class="py-4 px-2 text-right text-slate-500 font-mono">{{ tweet.conf }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
-        </section>
-        
-        <main>
-            <div class="input-card">
-                <h2>Paste News Headline</h2>
-                <textarea id="tweetInput" placeholder="Enter a headline or tweet to verify..."></textarea>
-                <button id="analyzeBtn" onclick="analyzeTweet()">Run CNN Analysis</button>
-            </div>
+        </div>
+    </section>
 
-            <div class="result-card" id="resultCard" style="display: none;">
-                <div id="verdictLabel" class="verdict"></div>
-                <div class="confidence-gauge">
-                    <label>Confidence: <span id="confidenceValue"></span></label>
-                    <div class="progress-bar"><div id="confidenceFill" class="progress-fill"></div></div>
-                </div>
-                <p><strong>Processed Text:</strong> <em id="cleanedText"></em></p>
+    <main class="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
+        <section class="md:col-span-1 glass p-6 rounded-2xl">
+            <h2 class="text-xl font-semibold mb-4">Manual Analysis</h2>
+            <form action="/analyze" method="post">
+                <textarea name="headline" class="w-full h-32 bg-slate-800 border-none rounded-xl p-4 mb-4 text-sm" placeholder="Paste headline here...">{{ headline }}</textarea>
+                <button class="bg-blue-600 hover:bg-blue-500 w-full py-3 rounded-xl font-bold transition">Analyze</button>
+            </form>
+            {% if result %}
+            <div class="mt-6 p-4 bg-slate-800 rounded-xl border-l-4 {% if result.verdict == 'Real' %}border-green-500{% else %}border-red-500{% endif %}">
+                <p class="text-sm text-slate-400 uppercase">Detection Result</p>
+                <h3 class="text-2xl font-bold {{ result.color }}">{{ result.verdict }} ({{ result.conf }})</h3>
             </div>
-        </main>
-    </div>
+            {% endif %}
+        </section>
+
+        <section class="md:col-span-2 glass p-6 rounded-2xl">
+            <h2 class="text-xl font-semibold mb-4">Content Monitoring Analytics</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <p class="text-xs text-slate-500 uppercase mb-2">Real vs Fake Distribution</p>
+                    <canvas id="splitChart"></canvas>
+                </div>
+                <div>
+                    <p class="text-xs text-slate-500 uppercase mb-2">Top Suspicious Keywords</p>
+                    <canvas id="keywordChart"></canvas>
+                </div>
+            </div>
+            <div class="mt-8">
+                <p class="text-xs text-slate-500 uppercase mb-2">System Relevancy Trend (%)</p>
+                <canvas id="relevancyChart" height="80"></canvas>
+            </div>
+        </section>
+    </main>
 
     <script>
-        async function analyzeTweet() {
-            const text = document.getElementById('tweetInput').value;
-            if (!text.trim()) return;
+        // Labels & Data from FastAPI
+        const stats = {{ stats | tojson }};
 
-            const resCard = document.getElementById('resultCard');
-            const btn = document.getElementById('analyzeBtn');
-            btn.disabled = true;
-            btn.innerText = "Processing...";
+        // 1. Doughnut Split
+        new Chart(document.getElementById('splitChart'), {
+            type: 'doughnut',
+            data: {
+                labels: stats.labels,
+                datasets: [{ data: stats.counts, backgroundColor: ['#10b981', '#ef4444'], borderWidth: 0 }]
+            },
+            options: { plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8' } } } }
+        });
 
-            const response = await fetch('/predict', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ text: text })
-            });
-            const data = await response.json();
+        // 2. Keyword Frequency Bar
+        new Chart(document.getElementById('keywordChart'), {
+            type: 'bar',
+            data: {
+                labels: stats.keywords,
+                datasets: [{ label: 'Frequency', data: stats.keyword_counts, backgroundColor: 'rgba(59, 130, 246, 0.5)' }]
+            },
+            options: { 
+                indexAxis: 'y', 
+                plugins: { legend: { display: false } },
+                scales: { x: { grid: { display: false }, ticks: { color: '#94a3b8' } }, y: { ticks: { color: '#94a3b8' } } }
+            }
+        });
 
-            resCard.style.display = 'block';
-            document.getElementById('verdictLabel').innerText = data.verdict;
-            document.getElementById('verdictLabel').className = 'verdict ' + data.verdict.replace(" ", "-").toLowerCase();
-            document.getElementById('confidenceValue').innerText = (data.confidence * 100).toFixed(2) + "%";
-            document.getElementById('confidenceFill').style.width = (data.confidence * 100) + "%";
-            document.getElementById('cleanedText').innerText = data.cleaned_text;
-            
-            btn.disabled = false;
-            btn.innerText = "Run CNN Analysis";
-        }
+        // 3. Relevancy Trend Line
+        new Chart(document.getElementById('relevancyChart'), {
+            type: 'line',
+            data: {
+                labels: ['Batch 1', 'Batch 2', 'Batch 3', 'Batch 4', 'Batch 5'],
+                datasets: [{ 
+                    label: 'US Relevancy %', 
+                    data: stats.relevancy, 
+                    borderColor: '#3b82f6', 
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    fill: true,
+                    tension: 0.4 
+                }]
+            },
+            options: { 
+                plugins: { legend: { display: false } },
+                scales: { 
+                    x: { grid: { display: false }, ticks: { color: '#94a3b8' } }, 
+                    y: { min: 0, max: 100, ticks: { color: '#94a3b8' } } 
+                } 
+            }
+        });
     </script>
 </body>
 </html>
