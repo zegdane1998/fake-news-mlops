@@ -8,4 +8,4 @@ pytest
 
 pywin32==311; sys_platform == 'win32'
 
-python-dotenv
+python-dotenvtweepy

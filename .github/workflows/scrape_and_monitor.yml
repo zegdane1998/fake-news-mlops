@@ -24,9 +24,9 @@ jobs:
         with:
           python-version: '3.9'
       - name: Install Dependencies
-        run: |
+        run: 
           pip install -r requirements.txt
-          pip install ntscraper
+          pip install tweepy ntscraper
 
       - name: Create Directory Structure
         # FIX 2: Ensure data paths exist for training
