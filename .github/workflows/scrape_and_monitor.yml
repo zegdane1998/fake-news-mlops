@@ -34,7 +34,7 @@ jobs:
 
       - name: Run Scraper
         env:
-          X_BEARER_TOKEN: ${{ secrets.X_BEARER_TOKEN }}
+          NEWSAPI_KEY: ${{ secrets.NEWSAPI_KEY }}
         run: python src/realtime_scraper.py
 
       - name: Monitor Performance
