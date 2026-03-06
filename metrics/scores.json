@@ -1,0 +1,14 @@
+{
+  "accuracy": 0.916,
+  "precision_macro": 0.8718,
+  "recall_macro": 0.9277,
+  "f1_macro": 0.8937,
+  "f1_fake": 0.845,
+  "f1_real": 0.9424,
+  "confusion_matrix": {
+    "TN": 1014,
+    "FP": 53,
+    "FN": 319,
+    "TP": 3042
+  }
+}
