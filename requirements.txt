@@ -9,3 +9,4 @@ tweepy
 python-dotenv
 pywin32==311; sys_platform == 'win32'
 
+newsapi-python
