@@ -12,3 +12,6 @@ dvc
 pytest
 flake8
 pywin32==311; sys_platform == 'win32'
+matplotlib>=3.7
+scipy>=1.10
+mlflow>=2.10

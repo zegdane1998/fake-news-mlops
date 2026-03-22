@@ -1,0 +1,28 @@
+train:
+  max_words: 30000
+  max_len: 100
+  embed_dim: 128
+  filters: 128
+  dense_units: 128
+  dropout_merged: 0.5
+  dropout_dense: 0.3
+  batch_size: 64
+  learning_rate: 0.001
+  epochs: 15
+  early_stop_patience: 3
+  test_size: 0.2
+  random_state: 42
+
+baselines:
+  tfidf_max_features: 30000
+  tfidf_ngram_min: 1
+  tfidf_ngram_max: 2
+  logreg_c: 1.0
+  svm_c: 1.0
+  lstm_units: 128
+  lstm_dropout: 0.3
+  lstm_embed_dim: 128
+  lstm_dense_units: 64
+  lstm_batch_size: 64
+  lstm_epochs: 15
+  lstm_early_stop_patience: 3

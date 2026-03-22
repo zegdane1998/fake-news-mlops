@@ -8,6 +8,8 @@ from fastapi.templating import Jinja2Templates
 from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 
+MAX_LEN = 100  # must match src/train.py MAX_LEN
+
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
 templates.env.globals["zip"] = zip  # expose zip() to Jinja2
@@ -32,7 +34,7 @@ def _get_latest_file():
 
 def _predict_batch(texts):
     sequences = TOKENIZER.texts_to_sequences(texts)
-    padded = pad_sequences(sequences, maxlen=50)
+    padded = pad_sequences(sequences, maxlen=MAX_LEN, padding='post', truncating='post')
     return MODEL.predict(padded, verbose=0).flatten().tolist()
 
 
