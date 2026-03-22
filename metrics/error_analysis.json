@@ -1,36 +1,36 @@
 {
   "false_positives": {
     "description": "FAKE articles incorrectly predicted as REAL",
-    "count": 280,
-    "mean_confidence": 0.5695,
+    "count": 341,
+    "mean_confidence": 0.4332,
     "top_examples": [
+      "prince harrys bachelor party everything you need to know",
+      "rip jack mandy moore shares cast reaction to tragic this is us episode",
       "chloë grace moretz speaks out about bodyshaming red shoes and the 7 dwarfs ad",
-      "2018 sag award nominations see full list of nominees – variety",
-      "safaree samuels challenges meek mill to fight before bet awards",
       "jimmy fallon felt heartfelt message",
-      "the academy and abc announce key dates for 90th oscars",
-      "lorde sets record straight on taylor swift friendship in fiery letter",
-      "national guard storms mexico border makes gamechanging impact in just 30 days",
-      "antidefamation league blasts larry david’s concentration camp ‘snl’ jokes “offensive insensitive unfunny”",
+      "heres what really happened when jfk jr met princess diana",
+      "hollywood celebrates harvey weinstein academy expulsion with online glee",
       "amal clooney changed dresses during the met gala in the museum gift shop",
-      "brad pitt news updates from award winning fight club actor"
+      "every political moment at the 2017 emmy awards",
+      "is mel b making a statement about her divorce with her mtv vmas dress",
+      "watch people entertainment weekly tnts 2018 sag awards red carpet live right here"
     ]
   },
   "false_negatives": {
     "description": "REAL articles incorrectly predicted as FAKE",
-    "count": 588,
-    "mean_confidence": 0.4613,
+    "count": 442,
+    "mean_confidence": 0.337,
     "top_examples": [
-      "gwen stefani hints that blake shelton is her forever man",
+      "brad pitt assures fans that hes not suicidal over angelina jolie divorce",
+      "angelina jolie and brad pitt divorce the nine quotes that defined their relationship",
+      "what’s going on with brad pitt and angelina jolie’s divorce",
+      "a complete timeline of brad pitt and angelina jolies 12year relationship",
       "katie holmes just can’t quit jamie foxx — despite his ‘publicly humiliating’ her with other women",
-      "kylie jenner refusing to discuss tyga on life of kylie",
-      "report justin biebers family thinks selena gomez is a positive influence",
-      "clintons lead over trump shrinks to 3 points new nbc newswsj poll",
-      "bruce willis",
-      "gwen stefani news on partner blake shelton and the voice",
-      "kanye west thought kim kardashian would divorce him because of his ‘slavery was a choice’ comments report",
+      "brad pitt is ‘just friends’ with mit professor neri oxman see everything about her",
+      "apparently the weeknd was not cool with selena gomez justin bieber hanging out",
       "schneiderman suing trump over daca cites discriminatory animus",
-      "brad pitt assures fans that hes not suicidal over angelina jolie divorce"
+      "jack antonoff slams rumors he’s dating other people",
+      "brad pitt joins leonardo dicaprio in quentin tarantino’s manson movie"
     ]
   }
 }
