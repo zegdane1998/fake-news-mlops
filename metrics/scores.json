@@ -1,14 +1,15 @@
 {
-  "accuracy": 0.916,
-  "precision_macro": 0.8718,
-  "recall_macro": 0.9277,
-  "f1_macro": 0.8937,
-  "f1_fake": 0.845,
-  "f1_real": 0.9424,
+  "accuracy": 0.8254,
+  "precision_macro": 0.767,
+  "recall_macro": 0.7972,
+  "f1_macro": 0.7792,
+  "auc_roc": 0.8744,
+  "f1_fake": 0.6781,
+  "f1_real": 0.8802,
   "confusion_matrix": {
-    "TN": 1014,
-    "FP": 53,
-    "FN": 319,
-    "TP": 3042
+    "TN": 853,
+    "FP": 298,
+    "FN": 512,
+    "TP": 2977
   }
 }
