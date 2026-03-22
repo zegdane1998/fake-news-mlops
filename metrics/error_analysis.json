@@ -1,36 +1,36 @@
 {
   "false_positives": {
     "description": "FAKE articles incorrectly predicted as REAL",
-    "count": 341,
-    "mean_confidence": 0.4332,
+    "count": 326,
+    "mean_confidence": 0.5667,
     "top_examples": [
-      "prince harrys bachelor party everything you need to know",
-      "rip jack mandy moore shares cast reaction to tragic this is us episode",
       "chloë grace moretz speaks out about bodyshaming red shoes and the 7 dwarfs ad",
-      "jimmy fallon felt heartfelt message",
-      "heres what really happened when jfk jr met princess diana",
-      "hollywood celebrates harvey weinstein academy expulsion with online glee",
+      "2018 sag award nominations see full list of nominees – variety",
       "amal clooney changed dresses during the met gala in the museum gift shop",
-      "every political moment at the 2017 emmy awards",
-      "is mel b making a statement about her divorce with her mtv vmas dress",
-      "watch people entertainment weekly tnts 2018 sag awards red carpet live right here"
+      "elon musk admits pain since split from amber heard",
+      "antidefamation league blasts larry david’s concentration camp ‘snl’ jokes “offensive insensitive unfunny”",
+      "prince harrys bachelor party everything you need to know",
+      "heres what really happened when jfk jr met princess diana",
+      "jimmy fallon felt heartfelt message",
+      "lorde sets record straight on taylor swift friendship in fiery letter",
+      "every political moment at the 2017 emmy awards"
     ]
   },
   "false_negatives": {
     "description": "REAL articles incorrectly predicted as FAKE",
-    "count": 442,
-    "mean_confidence": 0.337,
+    "count": 495,
+    "mean_confidence": 0.4564,
     "top_examples": [
+      "katie holmes just can’t quit jamie foxx — despite his ‘publicly humiliating’ her with other women",
+      "report justin biebers family thinks selena gomez is a positive influence",
+      "brad pitt is ‘just friends’ with mit professor neri oxman see everything about her",
+      "us report kate middleton pregnant with baby number four",
       "brad pitt assures fans that hes not suicidal over angelina jolie divorce",
       "angelina jolie and brad pitt divorce the nine quotes that defined their relationship",
-      "what’s going on with brad pitt and angelina jolie’s divorce",
-      "a complete timeline of brad pitt and angelina jolies 12year relationship",
-      "katie holmes just can’t quit jamie foxx — despite his ‘publicly humiliating’ her with other women",
-      "brad pitt is ‘just friends’ with mit professor neri oxman see everything about her",
-      "apparently the weeknd was not cool with selena gomez justin bieber hanging out",
       "schneiderman suing trump over daca cites discriminatory animus",
-      "jack antonoff slams rumors he’s dating other people",
-      "brad pitt joins leonardo dicaprio in quentin tarantino’s manson movie"
+      "gwen stefani hints that blake shelton is her forever man",
+      "kanye west thought kim kardashian would divorce him because of his ‘slavery was a choice’ comments report",
+      "katie holmes jamie foxx look like a couple at pregrammys gala"
     ]
   }
 }
