@@ -45,17 +45,20 @@ jobs:
       - name: Trigger Retraining
         if: steps.monitoring.outcome == 'failure'
         run: |
-          # If retraining needs the original data, ensure ingestion runs first
-          python src/ingestion.py 
+          python src/ingestion.py
           python src/preprocessing.py
           python src/train.py
-          
+
+      - name: Evaluate Retrained Model
+        if: steps.monitoring.outcome == 'failure'
+        run: python src/evaluate.py
+
       - name: Commit and Push Updates
         if: always()
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           touch data/new_scraped/.gitkeep
-          git add data/new_scraped/ models/
+          git add data/new_scraped/ models/ metrics/
           git commit -m "Automated CT: Updated data and model artifacts" || echo "No changes to commit"
           git push

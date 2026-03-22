@@ -5,11 +5,10 @@ import numpy as np
 import pandas as pd
 import tensorflow as tf
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 
-MAX_WORDS = 10000
-MAX_LEN   = 50
+from src.train import MAX_WORDS, MAX_LEN
 
 def evaluate():
     # ── Load model & tokenizer ──────────────────────────────────────────────
@@ -23,10 +22,10 @@ def evaluate():
     df = pd.read_csv('data/processed/gossipcop_cleaned.csv').dropna(subset=['clean_title', 'label'])
     df['label'] = df['label'].astype(int)
 
-    # ── Same 80/20 split as training (random_state=42) ─────────────────────
+    # ── Same 80/20 split as training (random_state=42, stratified) ──────────
     _, X_test, _, y_test = train_test_split(
         df['clean_title'], df['label'],
-        test_size=0.2, random_state=42
+        test_size=0.2, random_state=42, stratify=df['label']
     )
 
     # ── Tokenize & pad ──────────────────────────────────────────────────────
@@ -73,11 +72,13 @@ def evaluate():
     f1        = report_dict['macro avg']['f1-score']
     fake_f1   = report_dict['FAKE']['f1-score']
     real_f1   = report_dict['REAL']['f1-score']
+    auc_roc   = roc_auc_score(y_true, y_prob.flatten())
 
     print(f"\nOverall Accuracy : {accuracy:.4f}")
     print(f"Macro Precision  : {precision:.4f}")
     print(f"Macro Recall     : {recall:.4f}")
     print(f"Macro F1-Score   : {f1:.4f}")
+    print(f"AUC-ROC          : {auc_roc:.4f}")
     print(f"FAKE F1-Score    : {fake_f1:.4f}")
     print(f"REAL F1-Score    : {real_f1:.4f}")
 
@@ -88,6 +89,7 @@ def evaluate():
         "precision_macro":   round(precision, 4),
         "recall_macro":      round(recall, 4),
         "f1_macro":          round(f1, 4),
+        "auc_roc":           round(auc_roc, 4),
         "f1_fake":           round(fake_f1, 4),
         "f1_real":           round(real_f1, 4),
         "confusion_matrix": {
