@@ -1,0 +1,36 @@
+{
+  "false_positives": {
+    "description": "FAKE articles incorrectly predicted as REAL",
+    "count": 280,
+    "mean_confidence": 0.5695,
+    "top_examples": [
+      "chloë grace moretz speaks out about bodyshaming red shoes and the 7 dwarfs ad",
+      "2018 sag award nominations see full list of nominees – variety",
+      "safaree samuels challenges meek mill to fight before bet awards",
+      "jimmy fallon felt heartfelt message",
+      "the academy and abc announce key dates for 90th oscars",
+      "lorde sets record straight on taylor swift friendship in fiery letter",
+      "national guard storms mexico border makes gamechanging impact in just 30 days",
+      "antidefamation league blasts larry david’s concentration camp ‘snl’ jokes “offensive insensitive unfunny”",
+      "amal clooney changed dresses during the met gala in the museum gift shop",
+      "brad pitt news updates from award winning fight club actor"
+    ]
+  },
+  "false_negatives": {
+    "description": "REAL articles incorrectly predicted as FAKE",
+    "count": 588,
+    "mean_confidence": 0.4613,
+    "top_examples": [
+      "gwen stefani hints that blake shelton is her forever man",
+      "katie holmes just can’t quit jamie foxx — despite his ‘publicly humiliating’ her with other women",
+      "kylie jenner refusing to discuss tyga on life of kylie",
+      "report justin biebers family thinks selena gomez is a positive influence",
+      "clintons lead over trump shrinks to 3 points new nbc newswsj poll",
+      "bruce willis",
+      "gwen stefani news on partner blake shelton and the voice",
+      "kanye west thought kim kardashian would divorce him because of his ‘slavery was a choice’ comments report",
+      "schneiderman suing trump over daca cites discriminatory animus",
+      "brad pitt assures fans that hes not suicidal over angelina jolie divorce"
+    ]
+  }
+}
