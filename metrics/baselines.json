@@ -1,0 +1,41 @@
+{
+  "TF-IDF + LogReg": {
+    "accuracy": 0.8369,
+    "precision_macro": 0.7803,
+    "recall_macro": 0.803,
+    "f1_macro": 0.7901,
+    "f1_fake": 0.6911,
+    "f1_real": 0.8891,
+    "auc_roc": 0.882
+  },
+  "TF-IDF + SVM": {
+    "accuracy": 0.8534,
+    "precision_macro": 0.8305,
+    "recall_macro": 0.7521,
+    "f1_macro": 0.7791,
+    "f1_fake": 0.6509,
+    "f1_real": 0.9073,
+    "auc_roc": 0.876
+  },
+  "LSTM": {
+    "accuracy": 0.8405,
+    "precision_macro": 0.7914,
+    "recall_macro": 0.7647,
+    "f1_macro": 0.7763,
+    "f1_fake": 0.6565,
+    "f1_real": 0.8962,
+    "auc_roc": 0.8691
+  },
+  "TextCNN": {
+    "accuracy": 0.8125,
+    "precision_macro": 0.7548,
+    "recall_macro": 0.7973,
+    "f1_macro": 0.7695,
+    "auc_roc": 0.8727,
+    "f1_fake": 0.67,
+    "f1_real": 0.8691,
+    "roc_curve_path": "metrics/roc_curve.png",
+    "confidence_histogram_path": "metrics/confidence_histogram.png",
+    "error_analysis_path": "metrics/error_analysis.json"
+  }
+}

@@ -28,3 +28,124 @@ stages:
       hash: md5
       md5: 5d6ebb23ece1e19cdbaf4c4f5b81184c
       size: 1659135
+  train:
+    cmd: python src/train.py
+    deps:
+    - path: data/processed/gossipcop_cleaned.csv
+      hash: md5
+      md5: 5d6ebb23ece1e19cdbaf4c4f5b81184c
+      size: 1659135
+    - path: src/train.py
+      hash: md5
+      md5: d6b348a17e5d4a973f6189025a958e38
+      size: 5953
+    params:
+      params.yaml:
+        train.batch_size: 64
+        train.dense_units: 128
+        train.dropout_dense: 0.3
+        train.dropout_merged: 0.5
+        train.early_stop_patience: 3
+        train.embed_dim: 128
+        train.epochs: 15
+        train.filters: 128
+        train.learning_rate: 0.001
+        train.max_len: 100
+        train.max_words: 30000
+        train.random_state: 42
+        train.test_size: 0.2
+    outs:
+    - path: models/cnn_v1.h5
+      hash: md5
+      md5: 1af1693eb7d66583decfa00204b8ab9f
+      size: 49100016
+    - path: models/tokenizer.pkl
+      hash: md5
+      md5: ab3ee86ab67f3d40ec0622abd2d05401
+      size: 817863
+  evaluate:
+    cmd: python src/evaluate.py
+    deps:
+    - path: data/processed/gossipcop_cleaned.csv
+      hash: md5
+      md5: 5d6ebb23ece1e19cdbaf4c4f5b81184c
+      size: 1659135
+    - path: models/cnn_v1.h5
+      hash: md5
+      md5: 1af1693eb7d66583decfa00204b8ab9f
+      size: 49100016
+    - path: models/tokenizer.pkl
+      hash: md5
+      md5: ab3ee86ab67f3d40ec0622abd2d05401
+      size: 817863
+    - path: src/evaluate.py
+      hash: md5
+      md5: bc7495d582dc7406cc18a308a8bfde58
+      size: 9967
+    outs:
+    - path: metrics/confidence_histogram.png
+      hash: md5
+      md5: ba567a539b5fd53f57a4e737dce4e7bd
+      size: 47161
+    - path: metrics/error_analysis.json
+      hash: md5
+      md5: 796f9ffe71f81f9201cffc2cda9f21c4
+      size: 1876
+    - path: metrics/roc_curve.png
+      hash: md5
+      md5: d1908482a10295306fb5433c22f105e2
+      size: 63675
+    - path: metrics/scores.json
+      hash: md5
+      md5: dd37fb586488c660565da155889be027
+      size: 436
+  baselines:
+    cmd: python src/baselines.py
+    deps:
+    - path: data/processed/gossipcop_cleaned.csv
+      hash: md5
+      md5: 5d6ebb23ece1e19cdbaf4c4f5b81184c
+      size: 1659135
+    - path: metrics/scores.json
+      hash: md5
+      md5: dd37fb586488c660565da155889be027
+      size: 436
+    - path: models/tokenizer.pkl
+      hash: md5
+      md5: ab3ee86ab67f3d40ec0622abd2d05401
+      size: 817863
+    - path: src/baselines.py
+      hash: md5
+      md5: fe94ae1ac51a99d890cef3e1b406cf87
+      size: 9658
+    params:
+      params.yaml:
+        baselines.logreg_c: 1.0
+        baselines.lstm_batch_size: 64
+        baselines.lstm_dense_units: 64
+        baselines.lstm_dropout: 0.3
+        baselines.lstm_early_stop_patience: 3
+        baselines.lstm_embed_dim: 128
+        baselines.lstm_epochs: 15
+        baselines.lstm_units: 128
+        baselines.svm_c: 1.0
+        baselines.tfidf_max_features: 30000
+        baselines.tfidf_ngram_max: 2
+        baselines.tfidf_ngram_min: 1
+    outs:
+    - path: metrics/baselines.json
+      hash: md5
+      md5: 6ff37e87de2301f86e49c1e583ba2ef6
+      size: 1001
+    - path: models/lstm_v1.h5
+      hash: md5
+      md5: 4d7768e6d8928608d5481808fe7534b3
+      size: 47804416
+    - path: models/tfidf_logreg.pkl
+      hash: md5
+      md5: b0df1f4f97f6469b99ee9c77efb767a6
+      size: 1304533
+    - path: models/tfidf_svm.pkl
+      hash: md5
+      md5: fb90b71d7cf09a37e90eef0e5466049a
+      size: 1785724
