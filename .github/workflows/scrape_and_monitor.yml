@@ -2,7 +2,7 @@ name: Scrape and Monitor
 
 on:
   schedule:
-    - cron: '0 0 * * 0'  # every Sunday — 4 runs/month × 10 tweets = 40 tweets (within free tier)
+    - cron: '0 6 * * *'  # every day at 06:00 UTC — 25 tweets/day × 30 days = 750 tweets/month
   workflow_dispatch:       # allow manual trigger
 
 permissions:
@@ -31,7 +31,7 @@ jobs:
 
       - name: Run Scraper (X/Twitter)
         env:
-          TWITTER_BEARER_TOKEN: ${{ secrets.TWITTER_BEARER_TOKEN }}
+          X_BEARER_TOKEN: ${{ secrets.X_BEARER_TOKEN }}
         run: python src/realtime_scraper.py
 
       - name: Monitor Performance

@@ -23,10 +23,10 @@ def _clean_tweet(text):
     return text
 
 
-def scrape_us_politics(max_results=10):  # free tier: 100 tweets/month max
-    bearer_token = os.getenv("TWITTER_BEARER_TOKEN")
+def scrape_us_politics(max_results=25):  # usage-based: 25/day × 30 = 750 tweets/month × $0.005 = ~$3.75/mo
+    bearer_token = os.getenv("X_BEARER_TOKEN")
     if not bearer_token:
-        print("Error: TWITTER_BEARER_TOKEN missing from .env")
+        print("Error: X_BEARER_TOKEN missing from .env")
         return
 
     client = tweepy.Client(bearer_token=bearer_token, wait_on_rate_limit=True)
