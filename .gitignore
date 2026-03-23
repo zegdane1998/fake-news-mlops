@@ -1,8 +1,5 @@
 venv/
 __pycache__/
 *.pyc
-.vs/
-.env
-.claude/
 mlruns/
 .env
