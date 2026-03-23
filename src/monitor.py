@@ -15,10 +15,14 @@ from src.train import MAX_LEN
 
 # ── US political relevancy keywords ───────────────────────────────────────────
 US_POLITICAL_KEYWORDS = [
+    # US-Iran conflict
+    'iran', 'iranian', 'irgc', 'tehran', 'khamenei', 'strait of hormuz',
+    'airstrike', 'us strikes', 'nuclear deal', 'sanctions', 'persian gulf',
+    'houthis', 'proxy war', 'iran missile', 'iran attack', 'middle east',
+    # General US politics
     'congress', 'white house', 'biden', 'trump', 'senate', 'election',
-    'democrat', 'republican', 'washington', 'president', 'governor',
+    'democrat', 'republican', 'washington', 'president', 'pentagon',
     'legislation', 'vote', 'ballot', 'campaign', 'policy',
-    'supreme court', 'house of representatives', 'filibuster',
 ]
 
 
@@ -141,39 +145,49 @@ def run_monitoring():
     print(f"Avg decision confidence: {avg_conf:.4f} (threshold: 0.30)")
     print(f"Prediction std-dev:      {pred_std:.4f}")
 
-    # 4. Statistical drift detection
+    # 4. Statistical drift detection (skipped if reference data unavailable)
     ref_path = 'models/reference_score_distribution.npy'
+    new_scores = predictions.flatten()
+    ks_result = None
+    psi_value = None
+    psi_status = None
+
     if not os.path.exists(ref_path):
-        print("Building reference distribution (first run)...")
-        ref_scores = build_reference_distribution(model, tokenizer, MAX_LEN)
+        processed_path = 'data/processed/gossipcop_cleaned.csv'
+        if os.path.exists(processed_path):
+            print("Building reference distribution (first run)...")
+            ref_scores = build_reference_distribution(model, tokenizer, MAX_LEN)
+            ks_result  = ks_test(ref_scores, new_scores)
+            psi_value  = compute_psi(ref_scores, new_scores)
+            psi_status = _psi_label(psi_value)
+        else:
+            print("Reference distribution unavailable — skipping KS/PSI tests.")
     else:
         ref_scores = np.load(ref_path)
         print(f"Reference distribution loaded: {len(ref_scores)} samples.")
+        ks_result  = ks_test(ref_scores, new_scores)
+        psi_value  = compute_psi(ref_scores, new_scores)
+        psi_status = _psi_label(psi_value)
 
-    new_scores = predictions.flatten()
-
-    ks_result = ks_test(ref_scores, new_scores)
-    psi_value = compute_psi(ref_scores, new_scores)
-    psi_status = _psi_label(psi_value)
-
-    print(f"KS-Test  : stat={ks_result['ks_statistic']:.4f}  "
-          f"p={ks_result['p_value']:.4f}  drift={ks_result['drift_detected']}")
-    print(f"PSI      : {psi_value:.4f} ({psi_status})")
+    if ks_result:
+        print(f"KS-Test  : stat={ks_result['ks_statistic']:.4f}  "
+              f"p={ks_result['p_value']:.4f}  drift={ks_result['drift_detected']}")
+        print(f"PSI      : {psi_value:.4f} ({psi_status})")
 
     # 5. Save drift report
     drift_report = {
-        "timestamp":       datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "source_file":     latest_file,
-        "n_articles":      int(len(df)),
-        "relevancy_rate":  round(relevancy_rate, 4),
-        "avg_confidence":  round(avg_conf, 4),
-        "pred_std":        round(pred_std, 4),
-        "ks_test":         ks_result,
+        "timestamp":      datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "source_file":    latest_file,
+        "n_articles":     int(len(df)),
+        "relevancy_rate": round(relevancy_rate, 4),
+        "avg_confidence": round(avg_conf, 4),
+        "pred_std":       round(pred_std, 4),
+        "ks_test":        ks_result,
         "psi": {
             "value":  psi_value,
             "status": psi_status,
             "thresholds": {"stable": 0.10, "moderate": 0.25},
-        },
+        } if psi_value is not None else None,
     }
     with open('metrics/drift_report.json', 'w') as f:
         json.dump(drift_report, f, indent=2)
@@ -183,8 +197,8 @@ def run_monitoring():
     drift_triggered = (
         relevancy_rate < 0.30
         or avg_conf < 0.30
-        or ks_result['drift_detected']
-        or psi_value >= 0.25
+        or (ks_result is not None and ks_result['drift_detected'])
+        or (psi_value is not None and psi_value >= 0.25)
     )
 
     if drift_triggered:
@@ -193,9 +207,9 @@ def run_monitoring():
             reasons.append(f"low relevancy ({relevancy_rate:.2%})")
         if avg_conf < 0.30:
             reasons.append(f"low confidence ({avg_conf:.4f})")
-        if ks_result['drift_detected']:
+        if ks_result and ks_result['drift_detected']:
             reasons.append(f"KS p={ks_result['p_value']:.4f}")
-        if psi_value >= 0.25:
+        if psi_value is not None and psi_value >= 0.25:
             reasons.append(f"PSI={psi_value:.4f}")
         print(f"WARNING: Drift detected — {', '.join(reasons)}. Triggering retraining.")
         sys.exit(1)

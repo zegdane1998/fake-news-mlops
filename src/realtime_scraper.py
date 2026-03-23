@@ -7,10 +7,16 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Political query — filters retweets, replies, and non-English tweets
+# Political query — focused on US-Iran conflict + general US politics
+# Filters retweets, replies, and non-English tweets
 QUERY = (
-    "(congress OR election OR senate OR \"white house\" OR trump OR biden "
-    "OR republican OR democrat OR \"supreme court\" OR legislation OR ballot) "
+    "("
+    "Iran OR \"Iranian\" OR \"IRGC\" OR \"Tehran\" OR \"Khamenei\" OR \"Strait of Hormuz\" "
+    "OR \"US strikes\" OR \"airstrike\" OR \"Middle East war\" OR \"nuclear deal\" "
+    "OR \"sanctions Iran\" OR \"Persian Gulf\" OR \"Houthis\" OR \"proxy war\" "
+    "OR \"US military Iran\" OR \"Iran attack\" OR \"Iran missile\" "
+    "OR trump OR biden OR congress OR \"white house\" OR pentagon "
+    ") "
     "lang:en -is:retweet -is:reply"
 )
 

@@ -67,8 +67,9 @@ def get_pipeline_status():
 
     all_text = " ".join(texts).lower()
     tracked_keywords = [
-        "congress", "white house", "trump", "election", "senate",
-        "ballots", "breaking", "leaked", "biden", "republican"
+        "iran", "airstrike", "nuclear", "sanctions", "tehran",
+        "houthis", "pentagon", "trump", "congress", "missile",
+        "irgc", "persian gulf", "proxy war", "white house", "biden",
     ]
     keyword_counts = [(kw, all_text.count(kw)) for kw in tracked_keywords]
     keyword_counts = sorted(keyword_counts, key=lambda x: -x[1])
