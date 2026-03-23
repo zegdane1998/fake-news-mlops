@@ -1,36 +1,36 @@
 {
   "false_positives": {
     "description": "FAKE articles incorrectly predicted as REAL",
-    "count": 329,
-    "mean_confidence": 0.5713,
+    "count": 247,
+    "mean_confidence": 0.3891,
     "top_examples": [
-      "chloë grace moretz speaks out about bodyshaming red shoes and the 7 dwarfs ad",
-      "the academy and abc announce key dates for 90th oscars",
-      "nicole kidman all her stunning looks on the cannes red carpet cannes 2017",
-      "national guard storms mexico border makes gamechanging impact in just 30 days",
-      "clinton foundations sends water to houston for 7 a bottle",
-      "prince harrys bachelor party everything you need to know",
       "amal clooney changed dresses during the met gala in the museum gift shop",
-      "cheryl burke returns to dancing with the stars",
+      "chloë grace moretz speaks out about bodyshaming red shoes and the 7 dwarfs ad",
       "rip jack mandy moore shares cast reaction to tragic this is us episode",
-      "radical muslims in australia offended that their children have to sing the national anthem"
+      "every political moment at the 2017 emmy awards",
+      "heres what really happened when jfk jr met princess diana",
+      "national guard storms mexico border makes gamechanging impact in just 30 days",
+      "prince harrys bachelor party everything you need to know",
+      "jimmy fallon felt heartfelt message",
+      "is mel b making a statement about her divorce with her mtv vmas dress",
+      "hollywood celebrates harvey weinstein academy expulsion with online glee"
     ]
   },
   "false_negatives": {
     "description": "REAL articles incorrectly predicted as FAKE",
-    "count": 469,
-    "mean_confidence": 0.4599,
+    "count": 667,
+    "mean_confidence": 0.3969,
     "top_examples": [
-      "brad pitt is ‘just friends’ with mit professor neri oxman see everything about her",
-      "katie holmes just can’t quit jamie foxx — despite his ‘publicly humiliating’ her with other women",
       "brad pitt assures fans that hes not suicidal over angelina jolie divorce",
-      "brad pitt joins leonardo dicaprio in quentin tarantino’s manson movie",
-      "a complete timeline of brad pitt and angelina jolies 12year relationship",
       "angelina jolie and brad pitt divorce the nine quotes that defined their relationship",
-      "brad pitt bid 120000 to watch ‘game of thrones’at sean penn’s haiti gala – variety",
-      "president trump attacks lunatic notalent dumbest person in tv",
-      "schneiderman suing trump over daca cites discriminatory animus",
-      "nina dobrev hangs with ex ian somerhalder and wife nikki reed"
+      "gwen stefani news on partner blake shelton and the voice",
+      "gwen stefani hints that blake shelton is her forever man",
+      "us report kate middleton pregnant with baby number four",
+      "katie holmes just can’t quit jamie foxx — despite his ‘publicly humiliating’ her with other women",
+      "jennifer aniston and justin theroux split lovingly after two years of marriage",
+      "a complete timeline of brad pitt and angelina jolies 12year relationship",
+      "brad pitt is ‘just friends’ with mit professor neri oxman see everything about her",
+      "report justin biebers family thinks selena gomez is a positive influence"
     ]
   }
 }

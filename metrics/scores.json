@@ -1,16 +1,16 @@
 {
-  "accuracy": 0.828,
-  "precision_macro": 0.7692,
-  "recall_macro": 0.7899,
-  "f1_macro": 0.7783,
-  "auc_roc": 0.8706,
-  "f1_fake": 0.6732,
-  "f1_real": 0.8833,
+  "accuracy": 0.803,
+  "precision_macro": 0.7475,
+  "recall_macro": 0.7971,
+  "f1_macro": 0.7624,
+  "auc_roc": 0.8752,
+  "f1_fake": 0.6642,
+  "f1_real": 0.8606,
   "confusion_matrix": {
-    "TN": 822,
-    "FP": 329,
-    "FN": 469,
-    "TP": 3020
+    "TN": 904,
+    "FP": 247,
+    "FN": 667,
+    "TP": 2822
   },
   "roc_curve_path": "metrics/roc_curve.png",
   "confidence_histogram_path": "metrics/confidence_histogram.png",
