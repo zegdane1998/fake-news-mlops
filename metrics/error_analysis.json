@@ -1,36 +1,36 @@
 {
   "false_positives": {
     "description": "FAKE articles incorrectly predicted as REAL",
-    "count": 326,
-    "mean_confidence": 0.5667,
+    "count": 329,
+    "mean_confidence": 0.5713,
     "top_examples": [
       "chloë grace moretz speaks out about bodyshaming red shoes and the 7 dwarfs ad",
-      "2018 sag award nominations see full list of nominees – variety",
-      "amal clooney changed dresses during the met gala in the museum gift shop",
-      "elon musk admits pain since split from amber heard",
-      "antidefamation league blasts larry david’s concentration camp ‘snl’ jokes “offensive insensitive unfunny”",
+      "the academy and abc announce key dates for 90th oscars",
+      "nicole kidman all her stunning looks on the cannes red carpet cannes 2017",
+      "national guard storms mexico border makes gamechanging impact in just 30 days",
+      "clinton foundations sends water to houston for 7 a bottle",
       "prince harrys bachelor party everything you need to know",
-      "heres what really happened when jfk jr met princess diana",
-      "jimmy fallon felt heartfelt message",
-      "lorde sets record straight on taylor swift friendship in fiery letter",
-      "every political moment at the 2017 emmy awards"
+      "amal clooney changed dresses during the met gala in the museum gift shop",
+      "cheryl burke returns to dancing with the stars",
+      "rip jack mandy moore shares cast reaction to tragic this is us episode",
+      "radical muslims in australia offended that their children have to sing the national anthem"
     ]
   },
   "false_negatives": {
     "description": "REAL articles incorrectly predicted as FAKE",
-    "count": 495,
-    "mean_confidence": 0.4564,
+    "count": 469,
+    "mean_confidence": 0.4599,
     "top_examples": [
-      "katie holmes just can’t quit jamie foxx — despite his ‘publicly humiliating’ her with other women",
-      "report justin biebers family thinks selena gomez is a positive influence",
       "brad pitt is ‘just friends’ with mit professor neri oxman see everything about her",
-      "us report kate middleton pregnant with baby number four",
+      "katie holmes just can’t quit jamie foxx — despite his ‘publicly humiliating’ her with other women",
       "brad pitt assures fans that hes not suicidal over angelina jolie divorce",
+      "brad pitt joins leonardo dicaprio in quentin tarantino’s manson movie",
+      "a complete timeline of brad pitt and angelina jolies 12year relationship",
       "angelina jolie and brad pitt divorce the nine quotes that defined their relationship",
+      "brad pitt bid 120000 to watch ‘game of thrones’at sean penn’s haiti gala – variety",
+      "president trump attacks lunatic notalent dumbest person in tv",
       "schneiderman suing trump over daca cites discriminatory animus",
-      "gwen stefani hints that blake shelton is her forever man",
-      "kanye west thought kim kardashian would divorce him because of his ‘slavery was a choice’ comments report",
-      "katie holmes jamie foxx look like a couple at pregrammys gala"
+      "nina dobrev hangs with ex ian somerhalder and wife nikki reed"
     ]
   }
 }
