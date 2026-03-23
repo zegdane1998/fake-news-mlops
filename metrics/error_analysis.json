@@ -1,35 +1,35 @@
 {
   "false_positives": {
     "description": "FAKE articles incorrectly predicted as REAL",
-    "count": 247,
-    "mean_confidence": 0.3891,
+    "count": 285,
+    "mean_confidence": 0.3965,
     "top_examples": [
-      "amal clooney changed dresses during the met gala in the museum gift shop",
       "chloë grace moretz speaks out about bodyshaming red shoes and the 7 dwarfs ad",
-      "rip jack mandy moore shares cast reaction to tragic this is us episode",
-      "every political moment at the 2017 emmy awards",
-      "heres what really happened when jfk jr met princess diana",
-      "national guard storms mexico border makes gamechanging impact in just 30 days",
-      "prince harrys bachelor party everything you need to know",
       "jimmy fallon felt heartfelt message",
+      "“outlander” stars sam heughan ‎caitriona balfe tease season 3 reunion on “gma”",
+      "man attempts suicide new york post makes matt lauer joke",
+      "every political moment at the 2017 emmy awards",
       "is mel b making a statement about her divorce with her mtv vmas dress",
-      "hollywood celebrates harvey weinstein academy expulsion with online glee"
+      "2018 sag award nominations see full list of nominees – variety",
+      "whats going on with john cena and nikki bella a timeline",
+      "rip jack mandy moore shares cast reaction to tragic this is us episode",
+      "elon musk admits pain since split from amber heard"
     ]
   },
   "false_negatives": {
     "description": "REAL articles incorrectly predicted as FAKE",
-    "count": 667,
-    "mean_confidence": 0.3969,
+    "count": 535,
+    "mean_confidence": 0.3814,
     "top_examples": [
-      "brad pitt assures fans that hes not suicidal over angelina jolie divorce",
       "angelina jolie and brad pitt divorce the nine quotes that defined their relationship",
-      "gwen stefani news on partner blake shelton and the voice",
-      "gwen stefani hints that blake shelton is her forever man",
+      "brad pitt assures fans that hes not suicidal over angelina jolie divorce",
       "us report kate middleton pregnant with baby number four",
       "katie holmes just can’t quit jamie foxx — despite his ‘publicly humiliating’ her with other women",
-      "jennifer aniston and justin theroux split lovingly after two years of marriage",
-      "a complete timeline of brad pitt and angelina jolies 12year relationship",
+      "what’s going on with brad pitt and angelina jolie’s divorce",
       "brad pitt is ‘just friends’ with mit professor neri oxman see everything about her",
+      "blake shelton feels a stronger bond with gwen stefani every day",
+      "jack antonoff slams rumors he’s dating other people",
+      "gwen stefani hints that blake shelton is her forever man",
       "report justin biebers family thinks selena gomez is a positive influence"
     ]
   }
