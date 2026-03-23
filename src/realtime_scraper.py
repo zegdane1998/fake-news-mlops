@@ -23,7 +23,7 @@ def _clean_tweet(text):
     return text
 
 
-def scrape_us_politics(max_results=100):
+def scrape_us_politics(max_results=10):  # free tier: 100 tweets/month max
     bearer_token = os.getenv("TWITTER_BEARER_TOKEN")
     if not bearer_token:
         print("Error: TWITTER_BEARER_TOKEN missing from .env")

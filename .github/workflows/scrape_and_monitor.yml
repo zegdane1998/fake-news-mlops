@@ -2,10 +2,9 @@ name: Scrape and Monitor
 
 on:
   schedule:
-    - cron: '0 0 * * 0'
-  workflow_dispatch:
+    - cron: '0 0 * * 0'  # every Sunday — 4 runs/month × 10 tweets = 40 tweets (within free tier)
+  workflow_dispatch:       # allow manual trigger
 
-# FIX 3: Give the runner write permissions
 permissions:
   contents: write
 
@@ -13,8 +12,8 @@ jobs:
   monitor_pipeline:
     runs-on: ubuntu-latest
     env:
-      # FIX 1: Set PYTHONPATH globally for the job
       PYTHONPATH: ${{ github.workspace }}
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
@@ -23,18 +22,16 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: '3.9'
+
       - name: Install Dependencies
-        run: |
-          pip install -r requirements.txt
-          pip install newsapi-python ntscraper
+        run: pip install -r requirements.txt
 
       - name: Create Directory Structure
-        # FIX 2: Ensure data paths exist for training
-        run: mkdir -p data/raw data/processed data/new_scraped models
+        run: mkdir -p data/raw data/processed data/new_scraped models metrics
 
-      - name: Run Scraper
+      - name: Run Scraper (X/Twitter)
         env:
-          NEWSAPI_KEY: ${{ secrets.NEWSAPI_KEY }}
+          TWITTER_BEARER_TOKEN: ${{ secrets.TWITTER_BEARER_TOKEN }}
         run: python src/realtime_scraper.py
 
       - name: Monitor Performance
@@ -42,7 +39,7 @@ jobs:
         run: python src/monitor.py
         continue-on-error: true
 
-      - name: Trigger Retraining
+      - name: Trigger Retraining (drift detected)
         if: steps.monitoring.outcome == 'failure'
         run: |
           python src/ingestion.py
