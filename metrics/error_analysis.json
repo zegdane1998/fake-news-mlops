@@ -1,36 +1,36 @@
 {
   "false_positives": {
     "description": "FAKE articles incorrectly predicted as REAL",
-    "count": 268,
-    "mean_confidence": 0.4194,
+    "count": 298,
+    "mean_confidence": 0.5471,
     "top_examples": [
-      "rip jack mandy moore shares cast reaction to tragic this is us episode",
-      "jimmy fallon felt heartfelt message",
-      "prince harrys bachelor party everything you need to know",
       "chloë grace moretz speaks out about bodyshaming red shoes and the 7 dwarfs ad",
+      "the academy and abc announce key dates for 90th oscars",
       "amal clooney changed dresses during the met gala in the museum gift shop",
-      "how the stars celebrated memorial day weekend",
-      "the promise of carrie fishers final star wars appearance",
-      "every political moment at the 2017 emmy awards",
-      "how princess diana is helping prince william and kate middleton raise their children",
-      "melissa mccarthy jenny mccarthy and other celeb cousins you never knew were related"
+      "jimmy fallon felt heartfelt message",
+      "national guard storms mexico border makes gamechanging impact in just 30 days",
+      "safaree samuels challenges meek mill to fight before bet awards",
+      "rip jack mandy moore shares cast reaction to tragic this is us episode",
+      "ellen degeneres bio age married husband daughter partner salary and net worth",
+      "2018 sag award nominations see full list of nominees – variety",
+      "antidefamation league blasts larry david’s concentration camp ‘snl’ jokes “offensive insensitive unfunny”"
     ]
   },
   "false_negatives": {
     "description": "REAL articles incorrectly predicted as FAKE",
-    "count": 602,
-    "mean_confidence": 0.3843,
+    "count": 573,
+    "mean_confidence": 0.463,
     "top_examples": [
-      "brad pitt assures fans that hes not suicidal over angelina jolie divorce",
-      "angelina jolie and brad pitt divorce the nine quotes that defined their relationship",
-      "gwen stefani news on partner blake shelton and the voice",
+      "katie holmes just can’t quit jamie foxx — despite his ‘publicly humiliating’ her with other women",
       "brad pitt is ‘just friends’ with mit professor neri oxman see everything about her",
-      "a complete timeline of brad pitt and angelina jolies 12year relationship",
+      "report justin biebers family thinks selena gomez is a positive influence",
+      "us report kate middleton pregnant with baby number four",
       "brad pitt joins leonardo dicaprio in quentin tarantino’s manson movie",
-      "gwen stefani hints that blake shelton is her forever man",
-      "what’s going on with brad pitt and angelina jolie’s divorce",
-      "blake shelton feels a stronger bond with gwen stefani every day",
-      "blake shelton’s ex was obsessed with gwen stefani"
+      "brad pitt assures fans that hes not suicidal over angelina jolie divorce",
+      "brad pitt bid 120000 to watch ‘game of thrones’at sean penn’s haiti gala – variety",
+      "jack antonoff slams rumors he’s dating other people",
+      "angelina jolie and brad pitt divorce the nine quotes that defined their relationship",
+      "kanye west thought kim kardashian would divorce him because of his ‘slavery was a choice’ comments report"
     ]
   }
 }
