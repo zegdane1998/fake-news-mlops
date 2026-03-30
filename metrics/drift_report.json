@@ -1,10 +1,10 @@
 {
-  "timestamp": "2026-03-29T07:06:57Z",
-  "source_file": "data/new_scraped/news_20260329_0706.csv",
+  "timestamp": "2026-03-30T07:45:17Z",
+  "source_file": "data/new_scraped/news_20260330_0745.csv",
   "n_articles": 25,
   "relevancy_rate": 1.0,
-  "avg_confidence": 0.4463,
-  "pred_std": 0.2525,
+  "avg_confidence": 0.4114,
+  "pred_std": 0.2268,
   "ks_test": null,
   "psi": null
 }
