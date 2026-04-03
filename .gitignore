@@ -1,5 +1,26 @@
 venv/
 __pycache__/
 *.pyc
+*.pyo
 mlruns/
 .env
+
+# DVC-managed data and models
+data/raw/
+data/processed/
+models/*.h5
+models/*.pkl
+models/bertweet_finetuned/
+
+# TRUBA logs
+logs/
+
+# Claude internal
+.claude/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+Thumbs.db

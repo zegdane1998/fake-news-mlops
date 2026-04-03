@@ -10,8 +10,15 @@ from scipy import stats
 from sklearn.model_selection import train_test_split
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 
-from src.preprocessing import clean_text
-from src.train import MAX_LEN
+MAX_LEN = 100  # must match src/train.py
+
+def clean_text(text):
+    import re
+    text = str(text).lower()
+    text = re.sub(r'http\S+|www\S+', '', text)
+    text = re.sub(r'[^a-z0-9\s]', '', text)
+    text = re.sub(r'\s+', ' ', text).strip()
+    return text
 
 # ── US political relevancy keywords ───────────────────────────────────────────
 US_POLITICAL_KEYWORDS = [

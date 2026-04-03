@@ -17,7 +17,7 @@ from sklearn.metrics import classification_report, roc_auc_score
 from tensorflow.keras import layers, models, callbacks
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 
-from src.train import MAX_WORDS, MAX_LEN
+MAX_WORDS, MAX_LEN = 30000, 100  # must match src/train.py
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 

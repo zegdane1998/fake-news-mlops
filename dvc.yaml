@@ -1,5 +1,41 @@
 stages:
 
+  download_pheme:
+    cmd: python src/download_pheme.py
+    deps:
+      - src/download_pheme.py
+    outs:
+      - data/raw/pheme_tweets.csv
+
+  preprocess_pheme:
+    cmd: python src/preprocessing.py --input data/raw/pheme_tweets.csv --output data/processed/pheme_cleaned.csv --mode tweet
+    deps:
+      - data/raw/pheme_tweets.csv
+      - src/preprocessing.py
+    outs:
+      - data/processed/pheme_cleaned.csv
+
+  train_bertweet:
+    cmd: python src/train_bertweet.py
+    deps:
+      - data/processed/pheme_cleaned.csv
+      - src/train_bertweet.py
+    params:
+      - bertweet.model_name
+      - bertweet.max_len
+      - bertweet.batch_size
+      - bertweet.epochs
+      - bertweet.learning_rate
+      - bertweet.warmup_ratio
+      - bertweet.weight_decay
+      - bertweet.test_size
+      - bertweet.random_state
+    outs:
+      - models/bertweet_finetuned/
+    metrics:
+      - metrics/bertweet_scores.json:
+          cache: false
+
   ingest:
     cmd: python src/ingestion.py
     deps:

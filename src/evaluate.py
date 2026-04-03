@@ -14,7 +14,7 @@ from sklearn.metrics import (
 )
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 
-from src.train import MAX_LEN
+MAX_LEN = 100  # must match src/train.py
 
 # ── Plot helpers ───────────────────────────────────────────────────────────────
 
