@@ -78,9 +78,21 @@ def scrape_us_politics(max_results=25):  # usage-based: 25/day × 30 = 750 tweet
 
     df = pd.DataFrame(data)
     os.makedirs("data/new_scraped", exist_ok=True)
+
+    # Save daily snapshot
     filename = f"data/new_scraped/news_{datetime.now().strftime('%Y%m%d_%H%M')}.csv"
     df.to_csv(filename, index=False)
     print(f"Saved {len(df)} tweets to {filename}")
+
+    # Accumulate into master CSV — every tweet ever scraped
+    master_path = "data/new_scraped/all_tweets.csv"
+    if os.path.exists(master_path):
+        master = pd.read_csv(master_path)
+        master = pd.concat([master, df], ignore_index=True).drop_duplicates(subset=["text"])
+    else:
+        master = df
+    master.to_csv(master_path, index=False)
+    print(f"Master CSV updated: {len(master)} total tweets → {master_path}")
 
 
 if __name__ == "__main__":
