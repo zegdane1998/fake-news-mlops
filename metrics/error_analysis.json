@@ -1,36 +1,36 @@
 {
   "false_positives": {
     "description": "FAKE articles incorrectly predicted as REAL",
-    "count": 298,
-    "mean_confidence": 0.5471,
+    "count": 300,
+    "mean_confidence": 0.4323,
     "top_examples": [
-      "chloë grace moretz speaks out about bodyshaming red shoes and the 7 dwarfs ad",
-      "the academy and abc announce key dates for 90th oscars",
-      "amal clooney changed dresses during the met gala in the museum gift shop",
-      "jimmy fallon felt heartfelt message",
-      "national guard storms mexico border makes gamechanging impact in just 30 days",
-      "safaree samuels challenges meek mill to fight before bet awards",
       "rip jack mandy moore shares cast reaction to tragic this is us episode",
-      "ellen degeneres bio age married husband daughter partner salary and net worth",
-      "2018 sag award nominations see full list of nominees – variety",
-      "antidefamation league blasts larry david’s concentration camp ‘snl’ jokes “offensive insensitive unfunny”"
+      "chloë grace moretz speaks out about bodyshaming red shoes and the 7 dwarfs ad",
+      "jimmy fallon felt heartfelt message",
+      "heres what really happened when jfk jr met princess diana",
+      "prince harrys bachelor party everything you need to know",
+      "how the stars celebrated memorial day weekend",
+      "“outlander” stars sam heughan ‎caitriona balfe tease season 3 reunion on “gma”",
+      "the academy and abc announce key dates for 90th oscars",
+      "is mel b making a statement about her divorce with her mtv vmas dress",
+      "oscar wins stardom and rehab elle fanning and 31 other child stars then and now"
     ]
   },
   "false_negatives": {
     "description": "REAL articles incorrectly predicted as FAKE",
-    "count": 573,
-    "mean_confidence": 0.463,
+    "count": 481,
+    "mean_confidence": 0.3878,
     "top_examples": [
-      "katie holmes just can’t quit jamie foxx — despite his ‘publicly humiliating’ her with other women",
-      "brad pitt is ‘just friends’ with mit professor neri oxman see everything about her",
-      "report justin biebers family thinks selena gomez is a positive influence",
-      "us report kate middleton pregnant with baby number four",
-      "brad pitt joins leonardo dicaprio in quentin tarantino’s manson movie",
       "brad pitt assures fans that hes not suicidal over angelina jolie divorce",
-      "brad pitt bid 120000 to watch ‘game of thrones’at sean penn’s haiti gala – variety",
-      "jack antonoff slams rumors he’s dating other people",
       "angelina jolie and brad pitt divorce the nine quotes that defined their relationship",
-      "kanye west thought kim kardashian would divorce him because of his ‘slavery was a choice’ comments report"
+      "what’s going on with brad pitt and angelina jolie’s divorce",
+      "a complete timeline of brad pitt and angelina jolies 12year relationship",
+      "brad pitt is ‘just friends’ with mit professor neri oxman see everything about her",
+      "katie holmes just can’t quit jamie foxx — despite his ‘publicly humiliating’ her with other women",
+      "apparently the weeknd was not cool with selena gomez justin bieber hanging out",
+      "brad pitt joins leonardo dicaprio in quentin tarantino’s manson movie",
+      "report justin biebers family thinks selena gomez is a positive influence",
+      "brad pitt bid 120000 to watch ‘game of thrones’at sean penn’s haiti gala – variety"
     ]
   }
 }
