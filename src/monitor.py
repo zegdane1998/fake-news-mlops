@@ -12,6 +12,10 @@ from tensorflow.keras.preprocessing.sequence import pad_sequences
 
 MAX_LEN = 100  # must match src/train.py
 
+# Resolve all paths relative to the project root (one level above src/)
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+os.chdir(PROJECT_ROOT)
+
 def clean_text(text):
     import re
     text = str(text).lower()
