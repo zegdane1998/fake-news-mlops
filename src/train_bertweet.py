@@ -6,6 +6,10 @@ Tracks everything with MLflow. Saves the model to models/bertweet_finetuned/.
 import json
 import os
 
+# Resolve paths relative to project root regardless of working directory
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+os.chdir(PROJECT_ROOT)
+
 import mlflow
 import numpy as np
 import pandas as pd
@@ -208,6 +212,18 @@ def train():
         mlflow.log_artifact("models/bertweet_finetuned", artifact_path="model")
 
         print(f"\nFinal scores: {scores}")
+
+        # Merge into baselines.json so the comparison table is complete
+        baselines_path = "metrics/baselines.json"
+        if os.path.exists(baselines_path):
+            with open(baselines_path) as f:
+                baselines = json.load(f)
+        else:
+            baselines = {}
+        baselines["BERTweet"] = scores
+        with open(baselines_path, "w") as f:
+            json.dump(baselines, f, indent=2)
+        print("BERTweet results merged into metrics/baselines.json")
 
 
 if __name__ == "__main__":

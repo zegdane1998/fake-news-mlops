@@ -12,11 +12,12 @@
 #SBATCH --error=logs/bertweet_%j.err
 
 # ── Environment ────────────────────────────────────────────────────────────────
-module load anaconda/3
-source activate fake-news   # conda env name (create it first — see setup below)
+module load comp/python/miniconda3
+source "$(conda info --base)/etc/profile.d/conda.sh"
+conda activate fake-news
 
-cd $SLURM_SUBMIT_DIR
-
+PROJECT_DIR=/arf/scratch/azegdane/fake-news-mlops
+cd "$PROJECT_DIR"
 mkdir -p logs
 
 echo "Job ID     : $SLURM_JOB_ID"
@@ -32,3 +33,11 @@ python src/preprocessing.py --input data/raw/pheme_tweets.csv \
 python src/train_bertweet.py
 
 echo "Done: $(date)"
+
+# ── Push metrics back to GitHub ────────────────────────────────────────────────
+git config user.name "TRUBA-runner"
+git config user.email "truba@fake-news-mlops"
+git pull origin master --rebase
+git add metrics/bertweet_scores.json metrics/baselines.json
+git commit -m "TRUBA: BERTweet results $(date -u '+%Y-%m-%d')" || echo "Nothing to commit"
+git push origin master
