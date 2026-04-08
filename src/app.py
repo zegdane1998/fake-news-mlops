@@ -8,6 +8,10 @@ from fastapi.templating import Jinja2Templates
 from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 
+# Resolve paths relative to project root regardless of working directory
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+os.chdir(PROJECT_ROOT)
+
 MAX_LEN = 100  # must match src/train.py MAX_LEN
 
 app = FastAPI()
@@ -18,15 +22,19 @@ MODEL = load_model("models/cnn_v1.h5")
 with open("models/tokenizer.pkl", "rb") as handle:
     TOKENIZER = pickle.load(handle)
 
-SCRAPE_DIR = "data/new_scraped"
+MASTER_CSV = "data/new_scraped/all_tweets.csv"
 
 
-def _get_latest_file():
-    if not os.path.exists(SCRAPE_DIR):
+def _get_data_file():
+    """Return the master accumulated CSV, falling back to the latest daily file."""
+    if os.path.exists(MASTER_CSV):
+        return MASTER_CSV
+    scrape_dir = "data/new_scraped"
+    if not os.path.exists(scrape_dir):
         return None
     files = [
-        os.path.join(SCRAPE_DIR, f)
-        for f in os.listdir(SCRAPE_DIR)
+        os.path.join(scrape_dir, f)
+        for f in os.listdir(scrape_dir)
         if f.endswith(".csv")
     ]
     return max(files, key=os.path.getmtime) if files else None
@@ -39,8 +47,8 @@ def _predict_batch(texts):
 
 
 def get_pipeline_status():
-    latest_file = _get_latest_file()
-    if latest_file is None:
+    data_file = _get_data_file()
+    if data_file is None:
         return {
             "last_sync": "No data yet",
             "status": "Waiting for scrape",
@@ -50,10 +58,10 @@ def get_pipeline_status():
         }
 
     last_sync = datetime.fromtimestamp(
-        os.path.getmtime(latest_file)
+        os.path.getmtime(data_file)
     ).strftime("%Y-%m-%d %H:%M")
 
-    df = pd.read_csv(latest_file).dropna(subset=["text"])
+    df = pd.read_csv(data_file).dropna(subset=["text"])
     texts = df["text"].astype(str).tolist()
 
     if not texts:
@@ -87,11 +95,14 @@ def get_pipeline_status():
 
 
 def get_latest_tweets(n=10):
-    latest_file = _get_latest_file()
-    if not latest_file:
+    data_file = _get_data_file()
+    if not data_file:
         return []
     try:
-        df = pd.read_csv(latest_file).dropna(subset=["text"]).tail(n)
+        df = pd.read_csv(data_file).dropna(subset=["text"])
+        if "scraped_at" in df.columns:
+            df = df.sort_values("scraped_at", ascending=False)
+        df = df.head(n)
         texts = df["text"].astype(str).tolist()
         probs = _predict_batch(texts)
 
