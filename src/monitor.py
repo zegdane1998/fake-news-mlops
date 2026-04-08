@@ -186,6 +186,13 @@ def run_monitoring():
         print(f"PSI      : {psi_value:.4f} ({psi_status})")
 
     # 5. Save drift report
+    drift_triggered = (
+        relevancy_rate < 0.30
+        or avg_conf < 0.30
+        or (ks_result is not None and ks_result['drift_detected'])
+        or (psi_value is not None and psi_value >= 0.25)
+    )
+
     drift_report = {
         "timestamp":      datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
         "source_file":    latest_file,
@@ -199,18 +206,11 @@ def run_monitoring():
             "status": psi_status,
             "thresholds": {"stable": 0.10, "moderate": 0.25},
         } if psi_value is not None else None,
+        "retrain_needed": drift_triggered,
     }
     with open('metrics/drift_report.json', 'w') as f:
         json.dump(drift_report, f, indent=2)
     print("Drift report saved to metrics/drift_report.json")
-
-    # 6. Trigger retraining on any drift signal
-    drift_triggered = (
-        relevancy_rate < 0.30
-        or avg_conf < 0.30
-        or (ks_result is not None and ks_result['drift_detected'])
-        or (psi_value is not None and psi_value >= 0.25)
-    )
 
     if drift_triggered:
         reasons = []

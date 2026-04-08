@@ -34,10 +34,5 @@ python src/train_bertweet.py
 
 echo "Done: $(date)"
 
-# ── Push metrics back to GitHub ────────────────────────────────────────────────
-git config user.name "TRUBA-runner"
-git config user.email "truba@fake-news-mlops"
-git pull origin master --rebase
-git add metrics/bertweet_scores.json metrics/baselines.json
-git commit -m "TRUBA: BERTweet results $(date -u '+%Y-%m-%d')" || echo "Nothing to commit"
-git push origin master
+# ── Signal completion to the cron job (login node has internet, compute node does not) ──
+touch "$PROJECT_DIR/.job_done"

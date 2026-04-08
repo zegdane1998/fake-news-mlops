@@ -46,19 +46,10 @@ jobs:
           git push
 
       - name: Monitor for Drift
-        id: monitoring
-        run: python src/monitor.py
-        continue-on-error: true
+        run: python src/monitor.py || true
 
       - name: Commit Drift Report
         run: |
           git add metrics/drift_report.json
           git commit -m "Drift report: $(date -u '+%Y-%m-%d')" || echo "No changes"
           git push
-
-      - name: Trigger Retraining on TRUBA (drift detected)
-        if: steps.monitoring.outcome == 'failure'
-        run: |
-          gh workflow run retrain_truba.yml
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
