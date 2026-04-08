@@ -8,8 +8,6 @@ mlruns/
 # DVC-managed data and models
 data/raw/
 data/processed/
-models/*.h5
-models/*.pkl
 models/bertweet_finetuned/
 
 # TRUBA logs
