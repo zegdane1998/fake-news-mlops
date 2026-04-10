@@ -1,10 +1,10 @@
 {
-  "timestamp": "2026-04-09T07:28:03Z",
+  "timestamp": "2026-04-10T07:46:25Z",
   "source_file": "data/new_scraped/all_tweets.csv",
-  "n_articles": 219,
+  "n_articles": 244,
   "relevancy_rate": 1.0,
-  "avg_confidence": 0.4918,
-  "pred_std": 0.2798,
+  "avg_confidence": 0.4829,
+  "pred_std": 0.276,
   "ks_test": null,
   "psi": null,
   "retrain_needed": false
