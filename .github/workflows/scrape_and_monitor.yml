@@ -46,10 +46,25 @@ jobs:
           git push
 
       - name: Monitor for Drift
-        run: python src/monitor.py || true
+        id: monitor
+        run: |
+          python src/monitor.py && echo "drift=false" >> $GITHUB_OUTPUT || echo "drift=true" >> $GITHUB_OUTPUT
 
       - name: Commit Drift Report
         run: |
           git add metrics/drift_report.json
           git commit -m "Drift report: $(date -u '+%Y-%m-%d')" || echo "No changes"
           git push
+
+      - name: Trigger Vast.ai Retraining
+        if: steps.monitor.outputs.drift == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              workflow_id: 'retrain_vastai.yml',
+              ref: 'master'
+            });
+            console.log('Retraining triggered on Vast.ai');

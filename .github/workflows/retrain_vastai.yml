@@ -1,0 +1,69 @@
+name: Retrain on Vast.ai
+
+on:
+  workflow_dispatch:
+
+jobs:
+  retrain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install Vast.ai CLI
+        run: pip install vastai
+
+      - name: Authenticate Vast.ai
+        run: vastai set api-key ${{ secrets.VASTAI_API_KEY }}
+
+      - name: Find cheapest GPU offer
+        id: offer
+        run: |
+          OFFER_ID=$(vastai search offers \
+            'reliability > 0.9 num_gpus = 1 disk_space >= 20 cuda_vers >= 11.8' \
+            --type on-demand --raw \
+            | python3 -c "
+          import sys, json
+          offers = json.load(sys.stdin)
+          offers.sort(key=lambda x: x['dph_total'])
+          print(offers[0]['id'])
+          ")
+          echo "offer_id=$OFFER_ID" >> $GITHUB_OUTPUT
+          echo "Cheapest offer: $OFFER_ID"
+
+      - name: Launch instance and start training
+        id: instance
+        run: |
+          RESULT=$(vastai create instance ${{ steps.offer.outputs.offer_id }} \
+            --image pytorch/pytorch:2.1.0-cuda11.8-cudnn8-runtime \
+            --disk 20 \
+            --onstart-cmd "bash -c 'curl -sO https://raw.githubusercontent.com/zegdane1998/fake-news-mlops/master/train_vastai.sh && bash train_vastai.sh ${{ secrets.GH_PAT }}'")
+          INSTANCE_ID=$(echo "$RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin)['new_contract'])")
+          echo "instance_id=$INSTANCE_ID" >> $GITHUB_OUTPUT
+          echo "Instance $INSTANCE_ID launched"
+
+      - name: Wait for training to finish
+        run: |
+          BEFORE_SHA="${{ github.sha }}"
+          echo "Polling every 2 min for BERTweet commit (up to 100 min)..."
+          for i in $(seq 1 50); do
+            sleep 120
+            RESPONSE=$(curl -s \
+              -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+              "https://api.github.com/repos/zegdane1998/fake-news-mlops/commits/master")
+            LATEST_SHA=$(echo "$RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin)['sha'])")
+            LATEST_MSG=$(echo "$RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin)['commit']['message'])")
+            echo "[$i/50] $LATEST_MSG"
+            if [ "$LATEST_SHA" != "$BEFORE_SHA" ] && echo "$LATEST_MSG" | grep -qi "bertweet"; then
+              echo "Training complete!"
+              exit 0
+            fi
+          done
+          echo "ERROR: Training did not complete within 100 minutes" && exit 1
+
+      - name: Destroy instance
+        if: always()
+        run: |
+          vastai destroy instance ${{ steps.instance.outputs.instance_id }}
+          echo "Instance destroyed."
