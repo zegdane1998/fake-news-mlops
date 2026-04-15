@@ -1,7 +1,7 @@
 {
-  "accuracy": 0.959,
-  "f1_macro": 0.8984,
-  "f1_fake": 0.8199,
-  "f1_real": 0.9769,
-  "roc_auc": 0.9718
+  "accuracy": 0.9607,
+  "f1_macro": 0.8972,
+  "f1_fake": 0.8163,
+  "f1_real": 0.978,
+  "roc_auc": 0.9611
 }

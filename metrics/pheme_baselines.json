@@ -1,0 +1,37 @@
+{
+  "TF-IDF + LogReg": {
+    "accuracy": 0.9511,
+    "f1_macro": 0.8777,
+    "f1_fake": 0.7829,
+    "f1_real": 0.9725,
+    "auc_roc": 0.9713
+  },
+  "TF-IDF + SVM": {
+    "accuracy": 0.9686,
+    "f1_macro": 0.9143,
+    "f1_fake": 0.8462,
+    "f1_real": 0.9825,
+    "auc_roc": 0.9788
+  },
+  "LSTM": {
+    "accuracy": 0.8883,
+    "f1_macro": 0.4704,
+    "f1_fake": 0.0,
+    "f1_real": 0.9409,
+    "auc_roc": 0.502
+  },
+  "TextCNN": {
+    "accuracy": 0.9372,
+    "f1_macro": 0.8204,
+    "f1_fake": 0.6757,
+    "f1_real": 0.9652,
+    "auc_roc": 0.8994
+  },
+  "BERTweet": {
+    "accuracy": 0.959,
+    "f1_macro": 0.8984,
+    "f1_fake": 0.8199,
+    "f1_real": 0.9769,
+    "auc_roc": 0.9718
+  }
+}
