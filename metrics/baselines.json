@@ -37,5 +37,12 @@
     "roc_curve_path": "metrics/roc_curve.png",
     "confidence_histogram_path": "metrics/confidence_histogram.png",
     "error_analysis_path": "metrics/error_analysis.json"
+  },
+  "BERTweet": {
+    "accuracy": 0.959,
+    "f1_macro": 0.8984,
+    "f1_fake": 0.8199,
+    "f1_real": 0.9769,
+    "roc_auc": 0.9718
   }
 }
