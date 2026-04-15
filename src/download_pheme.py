@@ -17,9 +17,7 @@ import zipfile
 import pandas as pd
 import requests
 
-FIGSHARE_URL = (
-    "https://figshare.com/ndownloader/articles/6392078/versions/1"
-)
+FIGSHARE_ARTICLE_ID = 6392078
 RAW_OUT = "data/raw/pheme_tweets.csv"
 
 
@@ -31,24 +29,48 @@ def _normalise_tweet(text: str) -> str:
     return text.strip()
 
 
-def download_pheme() -> pd.DataFrame:
-    print("Downloading PHEME dataset from figshare …")
-    resp = requests.get(FIGSHARE_URL, stream=True, timeout=120)
+def _get_download_url() -> str:
+    """Use figshare API to get the direct file download URL."""
+    api_url = f"https://api.figshare.com/v2/articles/{FIGSHARE_ARTICLE_ID}/files"
+    resp = requests.get(api_url, timeout=30)
     resp.raise_for_status()
+    files = resp.json()
+    # Pick the zip file
+    for f in files:
+        if f["name"].endswith(".zip"):
+            return f["download_url"]
+    # fallback: first file
+    return files[0]["download_url"]
 
-    total = int(resp.headers.get("content-length", 0))
-    chunks = []
-    downloaded = 0
-    for chunk in resp.iter_content(chunk_size=1 << 20):  # 1 MB
-        chunks.append(chunk)
-        downloaded += len(chunk)
-        if total:
-            print(f"\r  {downloaded / 1e6:.1f} / {total / 1e6:.1f} MB", end="", flush=True)
-    print()
 
-    zip_bytes = b"".join(chunks)
-    print(f"Downloaded {len(zip_bytes) / 1e6:.1f} MB — parsing …")
-    return _parse_zip(zip_bytes)
+def download_pheme() -> pd.DataFrame:
+    print("Fetching PHEME download URL from figshare API …")
+    url = _get_download_url()
+    print(f"Downloading from: {url}")
+
+    import time
+    for attempt in range(10):
+        resp = requests.get(url, stream=True, timeout=180)
+        if resp.status_code == 202:
+            print(f"  figshare is preparing file (202), retrying in 5s … [{attempt+1}/10]")
+            time.sleep(5)
+            continue
+        resp.raise_for_status()
+
+        total = int(resp.headers.get("content-length", 0))
+        chunks = []
+        downloaded = 0
+        for chunk in resp.iter_content(chunk_size=1 << 20):
+            chunks.append(chunk)
+            downloaded += len(chunk)
+            if total:
+                print(f"\r  {downloaded / 1e6:.1f} / {total / 1e6:.1f} MB", end="", flush=True)
+        print()
+        zip_bytes = b"".join(chunks)
+        print(f"Downloaded {len(zip_bytes) / 1e6:.1f} MB — parsing …")
+        return _parse_zip(zip_bytes)
+
+    raise RuntimeError("figshare did not serve the file after 10 attempts (all 202)")
 
 
 def _parse_zip(zip_bytes: bytes) -> pd.DataFrame:
