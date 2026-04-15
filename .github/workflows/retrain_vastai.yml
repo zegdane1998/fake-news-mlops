@@ -17,31 +17,55 @@ jobs:
       - name: Authenticate Vast.ai
         run: vastai set api-key ${{ secrets.VASTAI_API_KEY }}
 
-      - name: Find cheapest GPU offer
-        id: offer
+      - name: Find cheapest offer and launch instance (with retry)
+        id: instance
         run: |
-          OFFER_ID=$(vastai search offers \
-            'reliability > 0.9 num_gpus = 1 disk_space >= 20 cuda_vers >= 11.8' \
-            --type on-demand --raw \
-            | python3 -c "
+          INSTANCE_ID=""
+          for attempt in 1 2 3; do
+            echo "Attempt $attempt: searching for GPU offer..."
+            OFFER_ID=$(vastai search offers \
+              'reliability > 0.9 num_gpus = 1 disk_space >= 20 cuda_vers >= 11.8' \
+              --type on-demand --raw \
+              | python3 -c "
           import sys, json
           offers = json.load(sys.stdin)
           offers.sort(key=lambda x: x['dph_total'])
           print(offers[0]['id'])
           ")
-          echo "offer_id=$OFFER_ID" >> $GITHUB_OUTPUT
-          echo "Cheapest offer: $OFFER_ID"
+            echo "Trying offer: $OFFER_ID"
 
-      - name: Launch instance and start training
-        id: instance
-        run: |
-          RESULT=$(vastai create instance ${{ steps.offer.outputs.offer_id }} \
-            --image pytorch/pytorch:2.1.0-cuda11.8-cudnn8-runtime \
-            --disk 20 \
-            --onstart-cmd "bash -c 'curl -sO https://raw.githubusercontent.com/zegdane1998/fake-news-mlops/master/train_vastai.sh && bash train_vastai.sh ${{ secrets.GH_PAT }}'")
-          INSTANCE_ID=$(echo "$RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin)['new_contract'])")
+            RAW=$(vastai create instance "$OFFER_ID" \
+              --image pytorch/pytorch:2.1.0-cuda11.8-cudnn8-runtime \
+              --disk 20 \
+              --onstart-cmd "bash -c 'curl -sO https://raw.githubusercontent.com/zegdane1998/fake-news-mlops/master/train_vastai.sh && bash train_vastai.sh ${{ secrets.GH_PAT }}'")
+
+            if [ -z "$RAW" ]; then
+              echo "Empty response (offer likely taken). Retrying in 15s..."
+              sleep 15
+              continue
+            fi
+
+            INSTANCE_ID=$(echo "$RAW" | python3 -c "
+          import sys, json
+          data = json.load(sys.stdin)
+          print(data['new_contract'] if data.get('success') else '')
+          " 2>/dev/null || echo "")
+
+            if [ -n "$INSTANCE_ID" ]; then
+              echo "Instance $INSTANCE_ID launched on offer $OFFER_ID"
+              break
+            fi
+
+            echo "Create returned no instance ID. Retrying in 15s..."
+            sleep 15
+          done
+
+          if [ -z "$INSTANCE_ID" ]; then
+            echo "ERROR: Failed to launch instance after 3 attempts."
+            exit 1
+          fi
+
           echo "instance_id=$INSTANCE_ID" >> $GITHUB_OUTPUT
-          echo "Instance $INSTANCE_ID launched"
 
       - name: Wait for training to finish
         run: |
@@ -65,5 +89,10 @@ jobs:
       - name: Destroy instance
         if: always()
         run: |
-          vastai destroy instance ${{ steps.instance.outputs.instance_id }}
-          echo "Instance destroyed."
+          INSTANCE_ID="${{ steps.instance.outputs.instance_id }}"
+          if [ -z "$INSTANCE_ID" ]; then
+            echo "No instance to destroy."
+            exit 0
+          fi
+          vastai destroy instance "$INSTANCE_ID"
+          echo "Instance $INSTANCE_ID destroyed."
