@@ -35,14 +35,14 @@ with open("params.yaml") as f:
     P = yaml.safe_load(f)["bertweet"]
 
 MODEL_NAME   = P["model_name"]
-MAX_LEN      = P["max_len"]
-BATCH_SIZE   = P["batch_size"]
-EPOCHS       = P["epochs"]
-LR           = P["learning_rate"]
-WARMUP_RATIO = P["warmup_ratio"]
-WEIGHT_DECAY = P["weight_decay"]
-TEST_SIZE    = P["test_size"]
-RANDOM_STATE = P["random_state"]
+MAX_LEN      = int(P["max_len"])
+BATCH_SIZE   = int(P["batch_size"])
+EPOCHS       = int(P["epochs"])
+LR           = float(P["learning_rate"])
+WARMUP_RATIO = float(P["warmup_ratio"])
+WEIGHT_DECAY = float(P["weight_decay"])
+TEST_SIZE    = float(P["test_size"])
+RANDOM_STATE = int(P["random_state"])
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"Device: {DEVICE}")
