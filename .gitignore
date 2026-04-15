@@ -10,6 +10,13 @@ data/raw/
 data/processed/
 models/bertweet_finetuned/
 
+# FakeNewsNet legacy models (no longer used)
+models/cnn_v1.h5
+models/lstm_v1.h5
+models/tfidf_logreg.pkl
+models/tfidf_svm.pkl
+models/tokenizer.pkl
+
 # TRUBA logs
 logs/
 

@@ -15,6 +15,21 @@ stages:
     outs:
       - data/processed/pheme_cleaned.csv
 
+  baselines_pheme:
+    cmd: python src/baselines.py
+    deps:
+      - data/processed/pheme_cleaned.csv
+      - src/baselines.py
+    outs:
+      - models/tfidf_logreg.pkl
+      - models/tfidf_svm.pkl
+      - models/lstm_pheme.pt
+      - models/textcnn_pheme.pt
+      - models/vocab_pheme.pkl
+    metrics:
+      - metrics/pheme_baselines.json:
+          cache: false
+
   train_bertweet:
     cmd: python src/train_bertweet.py
     deps:
@@ -34,88 +49,4 @@ stages:
       - models/bertweet_finetuned/
     metrics:
       - metrics/bertweet_scores.json:
-          cache: false
-
-  ingest:
-    cmd: python src/ingestion.py
-    deps:
-      - src/ingestion.py
-    outs:
-      - data/raw/gossipcop_combined.csv
-
-  preprocess:
-    cmd: python src/preprocessing.py
-    deps:
-      - data/raw/gossipcop_combined.csv
-      - src/preprocessing.py
-    outs:
-      - data/processed/gossipcop_cleaned.csv
-
-  train:
-    cmd: python src/train.py
-    deps:
-      - data/processed/gossipcop_cleaned.csv
-      - src/train.py
-    params:
-      - train.max_words
-      - train.max_len
-      - train.embed_dim
-      - train.filters
-      - train.dense_units
-      - train.dropout_merged
-      - train.dropout_dense
-      - train.batch_size
-      - train.learning_rate
-      - train.epochs
-      - train.early_stop_patience
-      - train.test_size
-      - train.random_state
-    outs:
-      - models/cnn_v1.h5
-      - models/tokenizer.pkl
-
-  evaluate:
-    cmd: python src/evaluate.py
-    deps:
-      - data/processed/gossipcop_cleaned.csv
-      - models/cnn_v1.h5
-      - models/tokenizer.pkl
-      - src/evaluate.py
-    outs:
-      - metrics/roc_curve.png:
-          cache: false
-      - metrics/confidence_histogram.png:
-          cache: false
-      - metrics/error_analysis.json:
-          cache: false
-    metrics:
-      - metrics/scores.json:
-          cache: false
-
-  baselines:
-    cmd: python src/baselines.py
-    deps:
-      - data/processed/gossipcop_cleaned.csv
-      - models/tokenizer.pkl
-      - metrics/scores.json
-      - src/baselines.py
-    params:
-      - baselines.tfidf_max_features
-      - baselines.tfidf_ngram_min
-      - baselines.tfidf_ngram_max
-      - baselines.logreg_c
-      - baselines.svm_c
-      - baselines.lstm_units
-      - baselines.lstm_dropout
-      - baselines.lstm_embed_dim
-      - baselines.lstm_dense_units
-      - baselines.lstm_batch_size
-      - baselines.lstm_epochs
-      - baselines.lstm_early_stop_patience
-    outs:
-      - models/tfidf_logreg.pkl
-      - models/tfidf_svm.pkl
-      - models/lstm_v1.h5
-    metrics:
-      - metrics/baselines.json:
           cache: false
