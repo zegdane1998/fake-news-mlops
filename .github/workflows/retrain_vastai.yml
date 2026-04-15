@@ -38,7 +38,7 @@ jobs:
               --image pytorch/pytorch:2.1.0-cuda11.8-cudnn8-runtime \
               --disk 20 \
               --raw \
-              --onstart-cmd "bash -c 'curl -sO https://raw.githubusercontent.com/zegdane1998/fake-news-mlops/master/train_vastai.sh && bash train_vastai.sh ${{ secrets.GH_PAT }}'")
+              --onstart-cmd "bash -c 'curl -fsSL https://raw.githubusercontent.com/zegdane1998/fake-news-mlops/master/train_vastai.sh -o /root/train_vastai.sh && bash /root/train_vastai.sh ${{ secrets.GH_PAT }} > /root/train.log 2>&1'")
 
             echo "Raw response: $RAW"
 
@@ -73,9 +73,13 @@ jobs:
       - name: Wait for training to finish
         run: |
           BEFORE_SHA="${{ github.sha }}"
+          INSTANCE_ID="${{ steps.instance.outputs.instance_id }}"
           echo "Polling every 2 min for BERTweet commit (up to 100 min)..."
           for i in $(seq 1 50); do
             sleep 120
+            echo "--- Instance logs (last 20 lines) ---"
+            vastai logs "$INSTANCE_ID" 2>/dev/null | tail -20 || echo "(no logs yet)"
+            echo "-------------------------------------"
             RESPONSE=$(curl -s \
               -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
               "https://api.github.com/repos/zegdane1998/fake-news-mlops/commits/master")
