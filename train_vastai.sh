@@ -20,7 +20,8 @@ if [ -z "$GITHUB_TOKEN" ]; then
 fi
 
 echo "=== [1/5] System setup ==="
-apt-get update -qq && apt-get install -y -qq git
+apt-get update -qq && apt-get install -y -qq git git-lfs
+git lfs install
 
 echo "=== [2/5] Clone repo ==="
 git config --global http.postBuffer 524288000
@@ -53,9 +54,9 @@ python src/preprocessing.py \
 echo "--- Fine-tuning BERTweet ---"
 python src/train_bertweet.py
 
-echo "=== [5/5] Push results to GitHub ==="
+echo "=== [5/5] Push results + model to GitHub ==="
 git pull origin master --rebase
-git add metrics/bertweet_scores.json metrics/baselines.json
+git add metrics/bertweet_scores.json metrics/baselines.json models/bertweet_finetuned/
 git commit -m "Vast.ai: BERTweet fine-tuned on PHEME $(date -u '+%Y-%m-%d')"
 git push origin master
 
