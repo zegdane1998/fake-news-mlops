@@ -24,7 +24,7 @@ jobs:
           for attempt in 1 2 3; do
             echo "Attempt $attempt: searching for GPU offer..."
             OFFER_ID=$(vastai search offers \
-              'reliability > 0.9 num_gpus = 1 disk_space >= 20 cuda_vers >= 11.8' \
+              'reliability > 0.9 num_gpus = 2 gpu_name = RTX_3090 disk_space >= 20 cuda_vers >= 11.8' \
               --type on-demand --raw \
               | python3 -c "
           import sys, json
