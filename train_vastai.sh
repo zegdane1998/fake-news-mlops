@@ -23,7 +23,8 @@ echo "=== [1/5] System setup ==="
 apt-get update -qq && apt-get install -y -qq git
 
 echo "=== [2/5] Clone repo ==="
-git clone https://${GITHUB_TOKEN}@github.com/${REPO}.git
+git config --global http.postBuffer 524288000
+git clone --depth 1 https://${GITHUB_TOKEN}@github.com/${REPO}.git
 cd fake-news-mlops
 
 git config user.email "24COMP5001@isik.edu.tr"
