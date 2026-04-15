@@ -13,6 +13,13 @@ models/bertweet_finetuned/
 # TRUBA logs
 logs/
 
+# Paper (kept local only)
+paper/
+
+# Leftover artifacts
+models_and_data.tar.gz
+pip-uninstall-*/
+
 # Claude internal
 .claude/
 
