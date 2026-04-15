@@ -14,14 +14,14 @@
 % ── Metadata ──────────────────────────────────────────────────────────────────
 \title{FakeShield: An End-to-End MLOps Pipeline for Real-Time Fake News Detection with Automated Drift Monitoring and HPC-Triggered Retraining}
 
-\author{Ahmed Zegdane}
+\author{Abdellah Zegdane}
 \affiliation{%
-  \institution{[Your University]}
-  \department{[Department]}
-  \city{[City]}
-  \country{[Country]}
+  \institution{isik university}
+  \department{Computer Science Engineering}
+  \city{Istanbul}
+  \country{Turkey}
 }
-\email{[your.email@university.edu]}
+\email{24COMP5001@isik.edu.tr}
 
 \begin{abstract}
 The proliferation of misinformation on social media demands automated, continuously adaptive detection systems.
@@ -33,7 +33,7 @@ real-time social media monitoring, statistical drift detection, and automated GP
 high-performance computing (HPC) cluster. We conduct a systematic comparison across five model families
 — TF-IDF with Logistic Regression and SVM, LSTM, TextCNN, and BERTweet — trained on the FakeNewsNet
 benchmark, and further fine-tune BERTweet on the PHEME rumour dataset for tweet-domain adaptation.
-Our best model achieves an AUC-ROC of 0.882 on FakeNewsNet. The pipeline continuously monitors
+Our best single model achieves an AUC-ROC of 0.882 on FakeNewsNet. The pipeline continuously monitors
 live political discourse from Twitter/X, computes Population Stability Index (PSI) and Kolmogorov-Smirnov
 statistics against the training distribution, and automatically triggers SLURM-scheduled retraining on
 TRUBA GPU nodes when drift is detected. FakeShield demonstrates that production-grade MLOps practices
@@ -69,7 +69,7 @@ We address this gap with \textit{FakeShield}, a complete MLOps pipeline built ar
   \item \textbf{Continuous monitoring}: live Twitter/X data is scraped daily, classified, and analysed
         for distribution shift against the training reference using PSI and KS-tests.
   \item \textbf{Automated retraining}: detected drift triggers a SLURM job on the TRUBA national HPC
-        cluster via GitHub Actions self-hosted runner, without manual intervention.
+        cluster via a cron-based polling script on the login node, without manual intervention.
   \item \textbf{Systematic comparison}: we evaluate five model families under identical conditions to
         provide a reproducible baseline progression from classical ML to transformer-based approaches.
 \end{enumerate}
@@ -146,9 +146,8 @@ and evaluation of BERTweet.
 
 For real-time monitoring, we continuously scrape US political discourse from Twitter/X via the
 Twitter API v2. Queries target terms related to US domestic politics and geopolitical events
-(e.g., \textit{Iran, sanctions, Pentagon, Congress}). As of the writing of this paper, we have
-accumulated \textbf{194 unique tweets} across multiple daily scrape cycles, all English-language
-and deduplicated by text. These tweets serve exclusively as inference targets for drift monitoring;
+(e.g., \textit{Iran, sanctions, Pentagon, Congress}). At the time of evaluation, we have accumulated \textbf{194 unique tweets} across multiple
+daily scrape cycles, all English-language and deduplicated by text. These tweets serve exclusively as inference targets for drift monitoring;
 they are not used for training.
 
 
@@ -239,12 +238,16 @@ of topic drift before statistical thresholds are reached.
 
 \subsection{Automated HPC Retraining}
 
-When drift is detected (monitor exits with code 1), the \texttt{scrape\_and\_monitor.yml}
-workflow triggers \texttt{retrain\_truba.yml} via the GitHub Actions API. This workflow runs on
-a self-hosted runner installed on the TRUBA login node and submits a SLURM batch job to the
-\texttt{barbun-cuda} GPU partition (1 node, 1 GPU, 32\,GB RAM, 8 CPUs, 6-hour wall time).
-The SLURM job downloads fresh PHEME data, preprocesses it, fine-tunes BERTweet, and pushes
-the resulting metrics back to the GitHub repository, closing the retraining loop automatically.
+When drift is detected, the GitHub Actions monitoring workflow sets \texttt{retrain\_needed: true}
+in \texttt{metrics/drift\_report.json} and pushes it to the repository. A lightweight cron script
+(\texttt{truba\_cron.sh}), installed in the user crontab on the TRUBA login node, polls this file
+hourly via the GitHub raw content API. Upon detecting the flag, it pulls the latest code and
+submits a SLURM batch job to the \texttt{barbun-cuda} GPU partition (1 node, 1 GPU, 32\,GB RAM,
+8 CPUs, 6-hour wall time). This design avoids the need for a persistent self-hosted runner or
+inbound network connectivity to TRUBA: the login node only requires outbound HTTPS access to
+GitHub. When the SLURM job completes, it writes a sentinel file; the cron script detects this on
+its next tick, commits the resulting metrics to the repository, and clears the retrain flag,
+closing the loop automatically.
 
 
 % ── 5. MODELS ─────────────────────────────────────────────────────────────────
@@ -342,8 +345,7 @@ BERTweet (fine-tuned) & -- & -- & -- & -- \\
 \end{tabular}
 \end{table}
 
-\noindent\textit{Note: BERTweet results will be populated after completion of TRUBA training run.
-Results are expected to exceed 0.85 macro-F1 based on prior work on PHEME~\cite{kochkina2018all}.}
+% TODO: populate after TRUBA training completes (expected >0.85 macro-F1, cf. \citealt{kochkina2018all})
 
 \subsection{Discussion}
 
@@ -369,12 +371,12 @@ short political tweets. BERTweet fine-tuned on PHEME is designed to resolve this
 
 \subsection{Monitoring in Practice}
 
-FakeShield has been running its daily monitoring pipeline for six days as of this writing,
-accumulating 194 unique English-language political tweets. The current drift report shows
-relevancy rate 1.0 (all scraped tweets match the US political keyword filter), confirming
-the scraper is on-target. The KS and PSI values are currently null, pending population of the
-reference distribution from the PHEME training split; this is resolved as part of the BERTweet
-pipeline completion.
+FakeShield has been operating its daily monitoring pipeline continuously, accumulating over
+194 unique English-language political tweets across multiple scrape cycles. The drift report
+shows a relevancy rate of 1.0 — all scraped tweets match the US political keyword filter —
+confirming the scraper remains on-target. KS and PSI statistics against the reference
+distribution will be reported upon completion of BERTweet fine-tuning, which establishes
+the PHEME-based reference split.
 
 \subsection{Retraining Trigger Semantics}
 
@@ -385,11 +387,10 @@ and statistical tests lack power.
 
 \subsection{HPC Integration}
 
-The TRUBA self-hosted runner maintains a persistent outbound polling connection to GitHub's
-Actions API from the login node, requiring no VPN tunnel from GitHub's cloud infrastructure.
-The runner submits jobs to the SLURM scheduler on the \texttt{barbun-cuda} GPU partition and
-pushes resulting metrics back to the repository upon job completion, making the retraining
-outcome visible in the repository's metrics history without manual SSH access.
+The cron-based design avoids a persistent runner process on the login node. The TRUBA login node
+only requires periodic outbound HTTPS access to GitHub's raw content API to read the drift flag
+and push metrics — no inbound connections, no VPN, and no special firewall rules are needed.
+SLURM job outcomes are made visible in the repository's commit history without any manual SSH access.
 
 
 % ── 8. CONCLUSION ─────────────────────────────────────────────────────────────
