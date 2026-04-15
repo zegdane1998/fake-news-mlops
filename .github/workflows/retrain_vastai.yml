@@ -37,7 +37,10 @@ jobs:
             RAW=$(vastai create instance "$OFFER_ID" \
               --image pytorch/pytorch:2.1.0-cuda11.8-cudnn8-runtime \
               --disk 20 \
+              --raw \
               --onstart-cmd "bash -c 'curl -sO https://raw.githubusercontent.com/zegdane1998/fake-news-mlops/master/train_vastai.sh && bash train_vastai.sh ${{ secrets.GH_PAT }}'")
+
+            echo "Raw response: $RAW"
 
             if [ -z "$RAW" ]; then
               echo "Empty response (offer likely taken). Retrying in 15s..."
