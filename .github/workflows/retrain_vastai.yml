@@ -29,9 +29,17 @@ jobs:
               | python3 -c "
           import sys, json
           offers = json.load(sys.stdin)
+          if not offers:
+              print('NO_OFFERS', file=sys.stderr)
+              sys.exit(1)
           offers.sort(key=lambda x: x['dph_total'])
           print(offers[0]['id'])
           ")
+            if [ -z "$OFFER_ID" ]; then
+              echo "No 2x RTX 3090 offers found. Retrying in 15s..."
+              sleep 15
+              continue
+            fi
             echo "Trying offer: $OFFER_ID"
 
             RAW=$(vastai create instance "$OFFER_ID" \
