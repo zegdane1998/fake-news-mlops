@@ -3,64 +3,61 @@ import pickle
 from datetime import datetime
 
 import pandas as pd
+import torch
 from fastapi import FastAPI, Form, Request
 from fastapi.templating import Jinja2Templates
-from tensorflow.keras.models import load_model
-from tensorflow.keras.preprocessing.sequence import pad_sequences
+from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
-# Resolve paths relative to project root regardless of working directory
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 os.chdir(PROJECT_ROOT)
 
-MAX_LEN = 100  # must match src/train.py MAX_LEN
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+MAX_LEN = 128
+MASTER_CSV = "data/new_scraped/all_tweets.csv"
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
-templates.env.globals["zip"] = zip  # expose zip() to Jinja2
+templates.env.globals["zip"] = zip
 
-MODEL = load_model("models/cnn_v1.h5")
-with open("models/tokenizer.pkl", "rb") as handle:
-    TOKENIZER = pickle.load(handle)
+_tokenizer = AutoTokenizer.from_pretrained("models/bertweet_finetuned", use_fast=False)
+_model = AutoModelForSequenceClassification.from_pretrained("models/bertweet_finetuned").to(DEVICE)
+_model.eval()
 
-MASTER_CSV = "data/new_scraped/all_tweets.csv"
+
+def _predict_batch(texts: list[str]) -> list[float]:
+    enc = _tokenizer(
+        texts,
+        max_length=MAX_LEN,
+        padding="max_length",
+        truncation=True,
+        return_tensors="pt",
+    )
+    with torch.no_grad():
+        logits = _model(
+            input_ids=enc["input_ids"].to(DEVICE),
+            attention_mask=enc["attention_mask"].to(DEVICE),
+        ).logits
+    probs = torch.softmax(logits, dim=-1)[:, 1].cpu().tolist()
+    return probs
 
 
 def _get_data_file():
-    """Return the master accumulated CSV, falling back to the latest daily file."""
     if os.path.exists(MASTER_CSV):
         return MASTER_CSV
     scrape_dir = "data/new_scraped"
     if not os.path.exists(scrape_dir):
         return None
-    files = [
-        os.path.join(scrape_dir, f)
-        for f in os.listdir(scrape_dir)
-        if f.endswith(".csv")
-    ]
+    files = [os.path.join(scrape_dir, f) for f in os.listdir(scrape_dir) if f.endswith(".csv")]
     return max(files, key=os.path.getmtime) if files else None
-
-
-def _predict_batch(texts):
-    sequences = TOKENIZER.texts_to_sequences(texts)
-    padded = pad_sequences(sequences, maxlen=MAX_LEN, padding='post', truncating='post')
-    return MODEL.predict(padded, verbose=0).flatten().tolist()
 
 
 def get_pipeline_status():
     data_file = _get_data_file()
     if data_file is None:
-        return {
-            "last_sync": "No data yet",
-            "status": "Waiting for scrape",
-            "counts": [0, 0],
-            "keywords": [],
-            "keyword_counts": [],
-        }
+        return {"last_sync": "No data yet", "status": "Waiting for scrape",
+                "counts": [0, 0], "keywords": [], "keyword_counts": []}
 
-    last_sync = datetime.fromtimestamp(
-        os.path.getmtime(data_file)
-    ).strftime("%Y-%m-%d %H:%M")
-
+    last_sync = datetime.fromtimestamp(os.path.getmtime(data_file)).strftime("%Y-%m-%d %H:%M")
     df = pd.read_csv(data_file).dropna(subset=["text"])
     texts = df["text"].astype(str).tolist()
 
@@ -79,22 +76,22 @@ def get_pipeline_status():
         "houthis", "pentagon", "trump", "congress", "missile",
         "irgc", "persian gulf", "proxy war", "white house", "biden",
     ]
-    keyword_counts = [(kw, all_text.count(kw)) for kw in tracked_keywords]
-    keyword_counts = sorted(keyword_counts, key=lambda x: -x[1])
+    keyword_counts = sorted(
+        [(kw, all_text.count(kw)) for kw in tracked_keywords],
+        key=lambda x: -x[1]
+    )
     keyword_counts = [(kw, cnt) for kw, cnt in keyword_counts if cnt > 0][:8]
-    keywords = [k for k, _ in keyword_counts]
-    kw_counts = [c for _, c in keyword_counts]
 
     return {
         "last_sync": last_sync,
         "status": "Healthy",
         "counts": [real_count, fake_count],
-        "keywords": keywords,
-        "keyword_counts": kw_counts,
+        "keywords": [k for k, _ in keyword_counts],
+        "keyword_counts": [c for _, c in keyword_counts],
     }
 
 
-def get_latest_tweets(n=10):
+def get_latest_tweets(n: int = 10):
     data_file = _get_data_file()
     if not data_file:
         return []
@@ -107,37 +104,36 @@ def get_latest_tweets(n=10):
         probs = _predict_batch(texts)
 
         tweets = []
-        for (_, row), pred in zip(df.iterrows(), probs):
-            conf_val = pred if pred > 0.5 else 1 - pred
+        for (_, row), prob in zip(df.iterrows(), probs):
+            conf = prob if prob > 0.5 else 1 - prob
             tweets.append({
                 "text": row["text"],
                 "scraped_at": row.get("scraped_at", "N/A"),
                 "source": row.get("source", "NewsAPI"),
-                "verdict": "Real" if pred > 0.5 else "Fake",
-                "conf": f"{conf_val * 100:.1f}%",
+                "verdict": "Real" if prob > 0.5 else "Fake",
+                "conf": f"{conf * 100:.1f}%",
             })
         return tweets
     except Exception as e:
-        print(f"Tweet loading error: {e}")
+        print(f"Error loading tweets: {e}")
         return []
 
 
 @app.get("/")
 async def home(request: Request):
     pipeline = get_pipeline_status()
-    tweets = get_latest_tweets(n=10)
-    stats = {
-        "labels": ["Real", "Fake"],
-        "counts": pipeline["counts"],
-        "keywords": pipeline["keywords"],
-        "keyword_counts": pipeline["keyword_counts"],
-    }
+    tweets = get_latest_tweets()
     return templates.TemplateResponse("index.html", {
         "request": request,
         "last_sync": pipeline["last_sync"],
         "status": pipeline["status"],
         "region": "United States",
-        "stats": stats,
+        "stats": {
+            "labels": ["Real", "Fake"],
+            "counts": pipeline["counts"],
+            "keywords": pipeline["keywords"],
+            "keyword_counts": pipeline["keyword_counts"],
+        },
         "tweets": tweets,
         "result": None,
         "headline": None,
@@ -146,21 +142,12 @@ async def home(request: Request):
 
 @app.post("/analyze")
 async def analyze(request: Request, headline: str = Form(...)):
-    probs = _predict_batch([headline])
-    pred = probs[0]
-    conf_val = pred if pred > 0.5 else 1 - pred
-    result = {
-        "verdict": "Real" if pred > 0.5 else "Fake",
-        "conf": f"{conf_val * 100:.1f}%",
-    }
+    prob = _predict_batch([headline])[0]
+    conf = prob if prob > 0.5 else 1 - prob
+    result = {"verdict": "Real" if prob > 0.5 else "Fake", "conf": f"{conf * 100:.1f}%"}
+
     pipeline = get_pipeline_status()
-    tweets = get_latest_tweets(n=10)
-    stats = {
-        "labels": ["Real", "Fake"],
-        "counts": pipeline["counts"],
-        "keywords": pipeline["keywords"],
-        "keyword_counts": pipeline["keyword_counts"],
-    }
+    tweets = get_latest_tweets()
     return templates.TemplateResponse("index.html", {
         "request": request,
         "result": result,
@@ -168,6 +155,11 @@ async def analyze(request: Request, headline: str = Form(...)):
         "last_sync": pipeline["last_sync"],
         "status": pipeline["status"],
         "region": "United States",
-        "stats": stats,
+        "stats": {
+            "labels": ["Real", "Fake"],
+            "counts": pipeline["counts"],
+            "keywords": pipeline["keywords"],
+            "keyword_counts": pipeline["keyword_counts"],
+        },
         "tweets": tweets,
     })

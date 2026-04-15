@@ -410,7 +410,7 @@
       <span><span class="status-dot"></span>LIVE</span>
       <span>SYNC: {{ last_sync }}</span>
       <span>REGION: {{ region }}</span>
-      <span>MODEL: CNN v1</span>
+      <span>MODEL: BERTweet</span>
     </div>
   </div>
 </header>
@@ -420,7 +420,7 @@
   <!-- HERO -->
   <div class="hero">
     <h1>Political Fake News<br>Detection System</h1>
-    <p>MASTER'S THESIS · IŞIK ÜNİVERSİTESİ · EYÜPSULTAN, ISTANBUL · REAL-TIME CNN INFERENCE</p>
+    <p>MASTER'S THESIS · IŞIK ÜNİVERSİTESİ · EYÜPSULTAN, ISTANBUL · REAL-TIME BERTWEET INFERENCE</p>
   </div>
 
   <!-- METRIC CARDS -->
@@ -451,8 +451,8 @@
   <div class="analyze-section">
     <div class="section-title">// Manual Analysis</div>
     <form method="post" action="/analyze">
-      <textarea name="headline" placeholder="Paste any news headline or tweet to analyze with the CNN model...">{% if headline %}{{ headline }}{% endif %}</textarea>
-      <button class="btn" type="submit">⚡ Run CNN Analysis</button>
+      <textarea name="headline" placeholder="Paste any news headline or tweet to analyze...">{% if headline %}{{ headline }}{% endif %}</textarea>
+      <button class="btn" type="submit">⚡ Run BERTweet Analysis</button>
     </form>
 
     {% if result %}
@@ -496,7 +496,7 @@
 
   <!-- TABLE -->
   <div class="table-section">
-    <div class="section-title">// Latest Scraped Headlines — CNN Predictions</div>
+    <div class="section-title">// Latest Scraped Headlines — BERTweet Predictions</div>
 
     {% if tweets %}
     <table>
@@ -545,7 +545,7 @@
 </div><!-- /container -->
 
 <footer>
-  <div>Political Fake News Detection System · Master's Thesis · Işık Üniversitesi · CNN + MLOps Pipeline</div>
+  <div>Political Fake News Detection System · Master's Thesis · Işık Üniversitesi · BERTweet + MLOps Pipeline</div>
 </footer>
 
 <script>
