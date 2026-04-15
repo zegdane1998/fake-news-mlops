@@ -66,7 +66,7 @@ class LSTMClassifier(nn.Module):
     def __init__(self, vocab_size, embed_dim, hidden=128):
         super().__init__()
         self.emb  = nn.Embedding(vocab_size, embed_dim, padding_idx=0)
-        self.lstm = nn.LSTM(embed_dim, hidden, batch_first=True, dropout=0.3)
+        self.lstm = nn.LSTM(embed_dim, hidden, batch_first=True)  # single layer, no dropout
         self.fc   = nn.Sequential(
             nn.Linear(hidden, 64), nn.ReLU(), nn.Dropout(0.3), nn.Linear(64, 1)
         )
@@ -97,14 +97,33 @@ class TextCNN(nn.Module):
 
 # ── Training loop ──────────────────────────────────────────────────────────────
 
+def _oversample(X, y):
+    """Oversample minority class to balance training data."""
+    fake_idx = np.where(y == 0)[0]
+    real_idx = np.where(y == 1)[0]
+    if len(fake_idx) >= len(real_idx):
+        return X, y
+    repeats = len(real_idx) // len(fake_idx)
+    remainder = len(real_idx) % len(fake_idx)
+    fake_idx_bal = np.concatenate([
+        np.tile(fake_idx, repeats),
+        np.random.RandomState(42).choice(fake_idx, remainder, replace=False)
+    ])
+    idx = np.concatenate([real_idx, fake_idx_bal])
+    np.random.RandomState(42).shuffle(idx)
+    return X[idx], y[idx]
+
+
 def _train_pytorch(model, X_tr, y_tr, X_val, y_val):
-    tr_ds  = TensorDataset(torch.tensor(X_tr), torch.tensor(y_tr, dtype=torch.float))
-    val_ds = TensorDataset(torch.tensor(X_val), torch.tensor(y_val, dtype=torch.float))
+    X_tr_bal, y_tr_bal = _oversample(X_tr, y_tr)
+    print(f"  Balanced train: {(y_tr_bal==0).sum()} fake / {(y_tr_bal==1).sum()} real")
+
+    tr_ds  = TensorDataset(torch.tensor(X_tr_bal), torch.tensor(y_tr_bal, dtype=torch.float))
+    val_ds = TensorDataset(torch.tensor(X_val),    torch.tensor(y_val,    dtype=torch.float))
     tr_loader  = DataLoader(tr_ds,  batch_size=BATCH_SIZE, shuffle=True)
     val_loader = DataLoader(val_ds, batch_size=BATCH_SIZE)
 
-    pos_weight = torch.tensor([(y_tr == 0).sum() / max((y_tr == 1).sum(), 1)]).to(DEVICE)
-    criterion  = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
+    criterion = nn.BCEWithLogitsLoss()
     optimizer  = torch.optim.Adam(model.parameters(), lr=1e-3)
 
     best_val, patience_cnt, best_state = float("inf"), 0, None
@@ -251,7 +270,11 @@ def run_baselines():
     # ── Merge BERTweet results ─────────────────────────────────────────────────
     if os.path.exists("metrics/bertweet_scores.json"):
         with open("metrics/bertweet_scores.json") as f:
-            results["BERTweet"] = json.load(f)
+            bt = json.load(f)
+        # normalize key name (train_bertweet.py saves as 'roc_auc')
+        if "roc_auc" in bt and "auc_roc" not in bt:
+            bt["auc_roc"] = bt.pop("roc_auc")
+        results["BERTweet"] = bt
 
     # ── Save & print table ─────────────────────────────────────────────────────
     with open("metrics/pheme_baselines.json", "w") as f:
