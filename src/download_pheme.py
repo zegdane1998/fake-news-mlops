@@ -59,15 +59,17 @@ def _parse_dir(root: str) -> pd.DataFrame:
                     try:
                         with open(ann_path) as f:
                             ann = json.load(f)
-                        veracity = ann.get("veracity", {}).get("value", "unverified")
+                        # values can be int 0/1 or string "0"/"1"
+                        is_misinfo = int(ann.get("misinformation", 0)) == 1
+                        is_true    = int(ann.get("true", 0)) == 1
                     except Exception:
                         continue
-                    if veracity == "false":
-                        label = 0
-                    elif veracity == "true":
-                        label = 1
+                    if is_misinfo:
+                        label = 0   # fake
+                    elif is_true:
+                        label = 1   # real
                     else:
-                        continue  # skip unverified
+                        continue    # unverified — skip
 
                 src_dir = os.path.join(thread_path, "source-tweets")
                 if not os.path.isdir(src_dir):
@@ -129,12 +131,13 @@ def _parse_zip(zip_bytes: bytes) -> pd.DataFrame:
                     continue
                 try:
                     ann = json.loads(zf.read(ann_path))
-                    veracity = ann.get("veracity", {}).get("value", "unverified")
+                    is_misinfo = int(ann.get("misinformation", 0)) == 1
+                    is_true    = int(ann.get("true", 0)) == 1
                 except Exception:
                     continue
-                if veracity == "false":
+                if is_misinfo:
                     label = 0
-                elif veracity == "true":
+                elif is_true:
                     label = 1
                 else:
                     continue
@@ -171,12 +174,13 @@ def _parse_tar(tar_bytes: bytes) -> pd.DataFrame:
                     continue
                 try:
                     ann = json.loads(tf.extractfile(tf.getmember(ann_path)).read())
-                    veracity = ann.get("veracity", {}).get("value", "unverified")
+                    is_misinfo = int(ann.get("misinformation", 0)) == 1
+                    is_true    = int(ann.get("true", 0)) == 1
                 except Exception:
                     continue
-                if veracity == "false":
+                if is_misinfo:
                     label = 0
-                elif veracity == "true":
+                elif is_true:
                     label = 1
                 else:
                     continue
