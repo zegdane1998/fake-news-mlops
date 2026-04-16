@@ -85,9 +85,9 @@ jobs:
           echo "Polling every 2 min for BERTweet commit (up to 100 min)..."
           for i in $(seq 1 50); do
             sleep 120
-            echo "--- Instance logs (last 20 lines) ---"
-            vastai logs "$INSTANCE_ID" 2>/dev/null | tail -20 || echo "(no logs yet)"
-            echo "-------------------------------------"
+            echo "--- train.log (last 20 lines) ---"
+            vastai execute "$INSTANCE_ID" "tail -20 /root/train.log 2>/dev/null || echo '(log not found yet)'" 2>/dev/null || echo "(instance not ready)"
+            echo "---------------------------------"
             RESPONSE=$(curl -s \
               -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
               "https://api.github.com/repos/zegdane1998/fake-news-mlops/commits/master")
