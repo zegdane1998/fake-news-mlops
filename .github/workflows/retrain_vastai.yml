@@ -78,6 +78,24 @@ jobs:
 
           echo "instance_id=$INSTANCE_ID" >> $GITHUB_OUTPUT
 
+      - name: Verify instance is running
+        run: |
+          INSTANCE_ID="${{ steps.instance.outputs.instance_id }}"
+          echo "Waiting for instance $INSTANCE_ID to reach 'running' status..."
+          for check in $(seq 1 20); do
+            sleep 30
+            STATUS=$(vastai show instance "$INSTANCE_ID" --raw \
+              | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('actual_status','unknown'))" 2>/dev/null || echo "unknown")
+            echo "[$check/20] status=$STATUS"
+            if [ "$STATUS" = "running" ]; then
+              echo "Instance is running."
+              exit 0
+            fi
+          done
+          echo "ERROR: Instance never reached running state — destroying and aborting."
+          echo y | vastai destroy instance "$INSTANCE_ID"
+          exit 1
+
       - name: Wait for training to finish
         run: |
           BEFORE_SHA="${{ github.sha }}"
