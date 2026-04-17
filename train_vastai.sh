@@ -4,9 +4,6 @@
 #
 # Usage:
 #   bash train_vastai.sh <GITHUB_TOKEN>
-#
-# Get a token at: GitHub → Settings → Developer settings → Personal access tokens → Fine-grained
-# Required permissions: Contents (read & write) on zegdane1998/fake-news-mlops
 
 set -e
 
@@ -15,9 +12,19 @@ REPO="zegdane1998/fake-news-mlops"
 
 if [ -z "$GITHUB_TOKEN" ]; then
     echo "ERROR: provide your GitHub token"
-    echo "Usage: bash train_vastai.sh <GITHUB_TOKEN>"
     exit 1
 fi
+
+push_status() {
+    local msg="$1"
+    git pull origin master --rebase --quiet 2>/dev/null || true
+    git add -A 2>/dev/null || true
+    # commit only if there's something staged, otherwise empty commit
+    git diff --cached --quiet && \
+        git commit --allow-empty -m "$msg" || \
+        git commit -m "$msg"
+    git push origin master
+}
 
 echo "=== [1/5] System setup ==="
 apt-get update -qq && apt-get install -y -qq git git-lfs
@@ -30,6 +37,12 @@ cd fake-news-mlops
 
 git config user.email "24COMP5001@isik.edu.tr"
 git config user.name "Abdellah Zegdane"
+git remote set-url origin https://${GITHUB_TOKEN}@github.com/${REPO}.git
+
+# Push failure status if anything below exits unexpectedly
+trap 'push_status "Vast.ai: training FAILED at $(date -u +%H:%M:%S) — check train.log"' ERR
+
+push_status "Vast.ai: training started $(date -u '+%Y-%m-%d %H:%M')"
 
 echo "=== [3/5] Install Python dependencies ==="
 pip install --quiet --upgrade pip
@@ -51,10 +64,13 @@ python src/preprocessing.py \
     --output data/processed/pheme_cleaned.csv \
     --mode   tweet
 
+push_status "Vast.ai: data ready, starting BERTweet fine-tuning $(date -u '+%H:%M')"
+
 echo "--- Fine-tuning BERTweet ---"
 python src/train_bertweet.py
 
 echo "=== [5/5] Push results + model to GitHub ==="
+trap - ERR
 git pull origin master --rebase
 git add metrics/bertweet_scores.json metrics/baselines.json models/bertweet_finetuned/
 git commit -m "Vast.ai: BERTweet fine-tuned on PHEME $(date -u '+%Y-%m-%d')"

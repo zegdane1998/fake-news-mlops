@@ -6,7 +6,7 @@ on:
 jobs:
   retrain:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 150
 
     steps:
       - uses: actions/checkout@v3
@@ -82,21 +82,29 @@ jobs:
         run: |
           BEFORE_SHA="${{ github.sha }}"
           INSTANCE_ID="${{ steps.instance.outputs.instance_id }}"
-          echo "Polling every 2 min for BERTweet commit (up to 100 min)..."
-          for i in $(seq 1 50); do
+          echo "BEFORE_SHA=$BEFORE_SHA"
+          echo "Polling every 2 min for training status commit (up to 120 min)..."
+          for i in $(seq 1 60); do
             sleep 120
             RESPONSE=$(curl -s \
               -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
               "https://api.github.com/repos/zegdane1998/fake-news-mlops/commits/master")
             LATEST_SHA=$(echo "$RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin)['sha'])")
             LATEST_MSG=$(echo "$RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin)['commit']['message'])")
-            echo "[$i/50] $LATEST_MSG"
-            if [ "$LATEST_SHA" != "$BEFORE_SHA" ] && echo "$LATEST_MSG" | grep -qi "bertweet"; then
+            echo "[$i/60] $LATEST_MSG"
+            if [ "$LATEST_SHA" = "$BEFORE_SHA" ]; then
+              continue
+            fi
+            if echo "$LATEST_MSG" | grep -qi "FAILED"; then
+              echo "ERROR: Training script reported failure: $LATEST_MSG"
+              exit 1
+            fi
+            if echo "$LATEST_MSG" | grep -qi "bertweet"; then
               echo "Training complete!"
               exit 0
             fi
           done
-          echo "ERROR: Training did not complete within 100 minutes" && exit 1
+          echo "ERROR: Training did not complete within 120 minutes" && exit 1
 
       - name: Destroy instance
         if: always()
