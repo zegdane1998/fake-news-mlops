@@ -44,8 +44,10 @@ WEIGHT_DECAY = float(P["weight_decay"])
 TEST_SIZE    = float(P["test_size"])
 RANDOM_STATE = int(P["random_state"])
 
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-print(f"Device: {DEVICE}")
+if not torch.cuda.is_available():
+    raise RuntimeError("No CUDA GPU found — aborting to avoid silent CPU training")
+DEVICE = "cuda"
+print(f"Device: {DEVICE}  ({torch.cuda.get_device_name(0)})")
 
 
 # ── Dataset ────────────────────────────────────────────────────────────────────

@@ -45,6 +45,9 @@ trap 'push_status "Vast.ai: training FAILED at $(date -u +%H:%M:%S) — check tr
 push_status "Vast.ai: training started $(date -u '+%Y-%m-%d %H:%M')"
 
 echo "=== [3/5] Install Python dependencies ==="
+# Ensure conda environment is active so CUDA libs are on PATH
+source /opt/conda/etc/profile.d/conda.sh 2>/dev/null || true
+conda activate base 2>/dev/null || true
 pip install --quiet --upgrade pip
 pip install --quiet \
     transformers==4.40.0 \
