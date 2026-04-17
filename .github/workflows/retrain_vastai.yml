@@ -99,7 +99,7 @@ jobs:
               echo "ERROR: Training script reported failure: $LATEST_MSG"
               exit 1
             fi
-            if echo "$LATEST_MSG" | grep -qi "bertweet"; then
+            if echo "$LATEST_MSG" | grep -qi "fine-tuned on PHEME"; then
               echo "Training complete!"
               exit 0
             fi
@@ -114,5 +114,5 @@ jobs:
             echo "No instance to destroy."
             exit 0
           fi
-          vastai destroy instance "$INSTANCE_ID"
+          echo "y" | vastai destroy instance "$INSTANCE_ID"
           echo "Instance $INSTANCE_ID destroyed."
