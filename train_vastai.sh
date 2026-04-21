@@ -52,7 +52,6 @@ pip install --quiet --upgrade pip
 pip install --quiet \
     transformers==4.40.0 \
     datasets \
-    torch \
     mlflow \
     pandas numpy scikit-learn \
     pyyaml requests tqdm accelerate
@@ -72,12 +71,12 @@ push_status "Vast.ai: data ready, starting BERTweet fine-tuning $(date -u '+%H:%
 echo "--- Fine-tuning BERTweet ---"
 python src/train_bertweet.py
 
-echo "=== [5/5] Push results + model to GitHub ==="
-trap - ERR
+echo "=== [5/5] Push results to GitHub ==="
 git pull origin master --rebase
-git add metrics/bertweet_scores.json metrics/baselines.json models/bertweet_finetuned/
+git add metrics/bertweet_scores.json metrics/baselines.json
 git commit -m "Vast.ai: BERTweet fine-tuned on PHEME $(date -u '+%Y-%m-%d')"
 git push origin master
+trap - ERR
 
 echo ""
 echo "============================================"

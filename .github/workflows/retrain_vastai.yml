@@ -6,7 +6,7 @@ on:
 jobs:
   retrain:
     runs-on: ubuntu-latest
-    timeout-minutes: 150
+    timeout-minutes: 210
 
     steps:
       - uses: actions/checkout@v3
@@ -107,8 +107,8 @@ jobs:
           BEFORE_SHA="${{ github.sha }}"
           INSTANCE_ID="${{ steps.instance.outputs.instance_id }}"
           echo "BEFORE_SHA=$BEFORE_SHA"
-          echo "Polling every 2 min for training status commit (up to 120 min)..."
-          for i in $(seq 1 60); do
+          echo "Polling every 2 min for training status commit (up to 180 min)..."
+          for i in $(seq 1 90); do
             sleep 120
             RESPONSE=$(curl -s \
               -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
