@@ -85,11 +85,12 @@ def train_epoch(model, loader, optimizer, scheduler):
             attention_mask=batch["attention_mask"].to(DEVICE),
             labels=batch["labels"].to(DEVICE),
         )
-        out.loss.backward()
+        loss = out.loss.mean()
+        loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         optimizer.step()
         scheduler.step()
-        total_loss += out.loss.item()
+        total_loss += loss.item()
     return total_loss / len(loader)
 
 
@@ -104,7 +105,7 @@ def eval_epoch(model, loader):
                 attention_mask=batch["attention_mask"].to(DEVICE),
                 labels=batch["labels"].to(DEVICE),
             )
-            total_loss += out.loss.item()
+            total_loss += out.loss.mean().item()
             probs = torch.softmax(out.logits, dim=-1)[:, 1].cpu().numpy()
             preds = out.logits.argmax(dim=-1).cpu().numpy()
             all_probs.extend(probs)

@@ -40,7 +40,7 @@ git config user.name "Abdellah Zegdane"
 git remote set-url origin https://${GITHUB_TOKEN}@github.com/${REPO}.git
 
 # Push failure status if anything below exits unexpectedly
-trap 'push_status "Vast.ai: training FAILED at $(date -u +%H:%M:%S) — check train.log"' ERR
+trap 'LAST_ERR=$(tail -5 /root/train.log 2>/dev/null | tr "\n" " " | cut -c1-200); push_status "Vast.ai: training FAILED at $(date -u +%H:%M:%S) — $LAST_ERR"' ERR
 
 push_status "Vast.ai: training started $(date -u '+%Y-%m-%d %H:%M')"
 
