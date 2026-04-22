@@ -7,12 +7,12 @@
 ```mermaid
 graph TB
     subgraph DATA["Data Layer"]
-        DS1[FakeNewsNet / GossipCop]
-        DS2[WELFake / PHEME\nfull text — planned]
+        DS1[FakeNewsNet / GossipCop\nheadlines]
+        DS2[PHEME\ntweet threads]
         SCR[X/Twitter Scraper\nrealtime_scraper.py]
     end
 
-    subgraph PIPELINE["DVC Pipeline"]
+    subgraph PIPELINE["DVC Pipeline — FakeNewsNet"]
         ING[ingest\ningestion.py]
         PRE[preprocess\npreprocessing.py]
         TRN[train\ntrain.py]
@@ -20,13 +20,18 @@ graph TB
         BAS[baselines\nbaselines.py]
     end
 
+    subgraph VAST["Vast.ai Pipeline — PHEME"]
+        V_DOWN[download_pheme.py]
+        V_PRE[preprocessing.py\ntweet mode]
+        V_BERT[train_bertweet.py\n2× RTX 3090]
+    end
+
     subgraph MODELS["Model Registry"]
-        CNN[TextCNN\ncnn_v1.h5]
-        TOK[Tokenizer\ntokenizer.pkl]
-        LR[TF-IDF + LogReg\ntfidf_logreg.pkl]
-        SVM[TF-IDF + SVM\ntfidf_svm.pkl]
-        LSTM[LSTM\nlstm_v1.h5]
-        BERT[BERTweet / RoBERTa\nplanned — TRUBA]
+        CNN[TextCNN\ncnn_v1.h5\nAcc 0.81]
+        LR[TF-IDF + LogReg\nAcc 0.84]
+        SVM[TF-IDF + SVM\nAcc 0.85]
+        LSTM[LSTM\nAcc 0.84]
+        BERT[BERTweet\nbertweet_finetuned/\nAcc 0.96 ✓]
     end
 
     subgraph TRACKING["Experiment Tracking"]
@@ -46,26 +51,26 @@ graph TB
     subgraph CI["CI/CD — GitHub Actions"]
         GHA1[Python CI\nmain.yml]
         GHA2[Scrape & Monitor\nscrape_and_monitor.yml\ndaily 06:00 UTC]
+        GHA3[Retrain on Vast.ai\nretrain_vastai.yml\nmanual trigger]
     end
 
     DS1 --> ING
-    DS2 -.->|planned| ING
+    DS2 --> V_DOWN --> V_PRE --> V_BERT --> BERT
     SCR --> MON
-    ING --> PRE --> TRN --> CNN & TOK
+    ING --> PRE --> TRN --> CNN
     PRE --> BAS --> LR & SVM & LSTM
     TRN --> EVL
-    CNN & TOK --> EVL
-    CNN & TOK & LR & SVM & LSTM --> MLF
-    CNN & TOK --> API --> UI
+    CNN & LR & SVM & LSTM & BERT --> MLF
+    CNN --> API --> UI
     MON --> REP
-    MON -->|drift sys.exit 1| GHA2
-    GHA2 -->|retrain| ING
+    MON -->|drift| GHA2 -->|retrain| ING
     GHA1 -->|pytest on push| TRN
+    GHA3 --> V_DOWN
 ```
 
 ---
 
-## 2. DVC Pipeline DAG
+## 2. DVC Pipeline DAG — FakeNewsNet
 
 ```mermaid
 flowchart LR
@@ -78,13 +83,13 @@ flowchart LR
     LR_PK[(models/\ntfidf_logreg.pkl)]
     SVM_PK[(models/\ntfidf_svm.pkl)]
     LSTM_H5[(models/\nlstm_v1.h5)]
-    PLOTS[(metrics/\nroc_curve.png\nconfidence_histogram.png\nerror_analysis.json)]
+    PLOTS[(metrics/\nroc_curve.png\nconfidence_histogram.png)]
 
     ING["ingest\n─────────\npython src/ingestion.py"]
     PRE["preprocess\n─────────\npython src/preprocessing.py"]
-    TRN["train\n─────────\npython src/train.py\nparams.yaml → train.*"]
+    TRN["train\n─────────\npython src/train.py"]
     EVL["evaluate\n─────────\npython src/evaluate.py"]
-    BAS["baselines\n─────────\npython src/baselines.py\nparams.yaml → baselines.*"]
+    BAS["baselines\n─────────\npython src/baselines.py"]
 
     ING --> RAW --> PRE --> PROC
     PROC --> TRN --> CNN_H5 & TOK_PK
@@ -94,12 +99,45 @@ flowchart LR
 
 ---
 
-## 3. TextCNN Architecture
+## 3. Vast.ai BERTweet Training Pipeline
+
+```mermaid
+flowchart TD
+    subgraph GHA["GitHub Actions — retrain_vastai.yml"]
+        TRIGGER([Manual trigger\nworkflow_dispatch])
+        LAUNCH[Find cheapest offer\n2× RTX 3090\nLaunch instance]
+        VERIFY[Verify instance running\nREST API polling]
+        POLL[Poll master commits\nevery 2 min — up to 180 min]
+        DESTROY[Destroy instance\nalways]
+    end
+
+    subgraph VAST["Vast.ai Instance\npytorch/pytorch:2.1.0-cuda11.8"]
+        SETUP[apt-get + git-lfs\ngit clone repo]
+        DEPS[pip install\ntransformers datasets\nmlflow accelerate]
+        DOWN[download_pheme.py\nfigshare API]
+        PREP[preprocessing.py\ntweet mode\nnormalise + clean]
+        STATUS1[push_status\ntraining started]
+        STATUS2[push_status\ndata ready]
+        TRAIN[train_bertweet.py\nvinai/bertweet-base\n5 epochs · batch 64\nDataParallel 2× GPU]
+        PUSH[git push\nmetrics/bertweet_scores.json\nmetrics/baselines.json]
+    end
+
+    TRIGGER --> LAUNCH --> VERIFY --> POLL
+    LAUNCH -.->|onstart-cmd| SETUP
+    SETUP --> STATUS1 --> DEPS --> DOWN --> PREP --> STATUS2 --> TRAIN --> PUSH
+    PUSH -->|commit: BERTweet fine-tuned on PHEME| POLL
+    POLL -->|detected success| DESTROY
+    POLL -->|FAILED commit detected| DESTROY
+```
+
+---
+
+## 4. TextCNN Architecture
 
 ```mermaid
 graph TB
     IN["Input\nsequence length = 100"]
-    EMB["Embedding\nvocab=30000 × dim=128"]
+    EMB["Embedding\nvocab=30 000 × dim=128"]
 
     subgraph CONV["Parallel Convolutions"]
         C3["Conv1D kernel=3\n128 filters → GlobalMaxPool"]
@@ -107,11 +145,11 @@ graph TB
         C5["Conv1D kernel=5\n128 filters → GlobalMaxPool"]
     end
 
-    CONCAT["Concatenate\n384-dim"]
+    CONCAT["Concatenate  384-dim"]
     DROP1["Dropout 0.5"]
     DENSE["Dense 128  ReLU"]
     DROP2["Dropout 0.3"]
-    OUT["Dense 1  Sigmoid\n→ P(real)"]
+    OUT["Dense 1  Sigmoid → P(real)"]
 
     IN --> EMB
     EMB --> C3 & C4 & C5
@@ -120,36 +158,62 @@ graph TB
 
 ---
 
-## 4. Model Comparison Hierarchy (Thesis Contribution)
+## 5. BERTweet Fine-Tuning Architecture
 
 ```mermaid
-graph LR
-    subgraph CLASSICAL["Classical ML"]
-        LR2["TF-IDF + LogReg"]
-        SVM2["TF-IDF + SVM\nCalibratedClassifierCV"]
+graph TB
+    IN2["Input tweet\nnormalised: HTTPURL @USER tokens"]
+    TOK2["BERTweet Tokenizer\nvinai/bertweet-base\nmax_len=128  use_fast=False"]
+
+    subgraph BERT_BODY["BERTweet Encoder  110M params"]
+        EMB2["Token + Position Embeddings\ndim=768"]
+        TR["12× Transformer Layers\nMulti-Head Self-Attention"]
+        CLS["[CLS] representation\n768-dim"]
     end
 
-    subgraph DEEP["Deep Learning"]
-        LSTM2["LSTM\nsingle-layer"]
-        CNN2["TextCNN\nKim 2014\nmulti-filter"]
+    subgraph HEAD["Classification Head"]
+        DROP3["Dropout 0.1"]
+        LIN["Linear 768 → 2"]
+        SOFT["Softmax → P(fake) / P(real)"]
     end
 
-    subgraph TRANSFORMER["Transformers — TRUBA GPU"]
-        BT["BERTweet\ntwitter-specific"]
-        RB["RoBERTa-base"]
-        DB["DeBERTa-v3"]
-    end
+    TRAIN2["Training\nAdamW lr=2e-5  wd=0.01\n5 epochs  batch=64  warmup=10%\nDataParallel — 2× RTX 3090"]
 
-    CLASSICAL -->|baseline| DEEP
-    DEEP -->|scale up| TRANSFORMER
-
-    note1["Headlines only\nFakeNewsNet"] -.-> CLASSICAL & DEEP
-    note2["Full tweets\nWELFake / PHEME"] -.-> TRANSFORMER
+    IN2 --> TOK2 --> EMB2 --> TR --> CLS --> DROP3 --> LIN --> SOFT
+    TRAIN2 -.->|fine-tune| BERT_BODY
 ```
 
 ---
 
-## 5. Continuous Training (CT) Pipeline — GitHub Actions
+## 6. Model Comparison — All Results
+
+```mermaid
+graph LR
+    subgraph CLASSICAL["Classical ML — FakeNewsNet headlines"]
+        LR2["TF-IDF + LogReg\nAcc 0.837  F1 0.790\nAUC 0.882"]
+        SVM2["TF-IDF + SVM\nAcc 0.853  F1 0.779\nAUC 0.876"]
+    end
+
+    subgraph DEEP["Deep Learning — FakeNewsNet headlines"]
+        LSTM2["LSTM\nAcc 0.841  F1 0.776\nAUC 0.869"]
+        CNN2["TextCNN\nAcc 0.813  F1 0.770\nAUC 0.873"]
+    end
+
+    subgraph TRANSFORMER["Transformers — PHEME tweets  ✓ Done"]
+        BT["BERTweet\nAcc 0.962  F1 0.897\nAUC 0.960\nVast.ai  2× RTX 3090"]
+        RB["RoBERTa-base\nplanned"]
+    end
+
+    CLASSICAL -->|scale up| DEEP
+    DEEP -->|scale up| TRANSFORMER
+
+    note1["Headlines only"] -.-> CLASSICAL & DEEP
+    note2["Full tweet threads\nPHEME dataset"] -.-> TRANSFORMER
+```
+
+---
+
+## 7. Continuous Training Pipeline — GitHub Actions
 
 ```mermaid
 sequenceDiagram
@@ -158,30 +222,36 @@ sequenceDiagram
     participant SCR as realtime_scraper.py
     participant MON as monitor.py
     participant DVC as DVC Pipeline
-    participant GIT as Git / DVC Remote
+    participant VAST as Vast.ai
+    participant GIT as Git / master
 
     SCH->>GHA: trigger scrape_and_monitor.yml
     GHA->>SCR: python src/realtime_scraper.py
     SCR-->>GHA: data/new_scraped/*.csv
 
     GHA->>MON: python src/monitor.py
-    MON->>MON: relevancy check (keywords)
-    MON->>MON: KS-test + PSI vs reference dist.
+    MON->>MON: relevancy + KS-test + PSI
 
-    alt No drift (exit 0)
+    alt No drift
         MON-->>GHA: STABLE
         GHA->>GIT: commit drift_report.json
-    else Drift detected (exit 1)
-        MON-->>GHA: DRIFT TRIGGERED
-        GHA->>DVC: ingestion → preprocess → train → evaluate
+    else Drift detected
+        MON-->>GHA: DRIFT
+        GHA->>DVC: ingest → preprocess → train → evaluate
         DVC-->>GHA: new cnn_v1.h5 + metrics
-        GHA->>GIT: commit models/ metrics/ data/new_scraped/
+        GHA->>GIT: commit models/ metrics/
     end
+
+    Note over GHA,VAST: Manual trigger — retrain_vastai.yml
+    GHA->>VAST: launch 2× RTX 3090 instance
+    VAST->>VAST: download PHEME → preprocess<br/>fine-tune BERTweet  5 epochs
+    VAST->>GIT: commit bertweet_scores.json
+    GHA->>VAST: destroy instance
 ```
 
 ---
 
-## 6. Monitoring & Drift Detection Logic
+## 8. Monitoring & Drift Detection Logic
 
 ```mermaid
 flowchart TD
@@ -191,8 +261,8 @@ flowchart TD
     KS{KS-test\np ≥ 0.05?}
     PSI{PSI < 0.25?}
 
-    STABLE([STABLE\nsys.exit 0])
-    RETRAIN([RETRAIN TRIGGERED\nsys.exit 1])
+    STABLE([STABLE — sys.exit 0])
+    RETRAIN([RETRAIN TRIGGERED — sys.exit 1])
 
     START --> REL
     REL -->|No| RETRAIN
@@ -202,63 +272,35 @@ flowchart TD
     KS -->|No — drift| RETRAIN
     KS -->|Yes — stable| PSI
     PSI -->|No — PSI ≥ 0.25| RETRAIN
-    PSI -->|Yes — PSI < 0.10 STABLE\n0.10–0.25 MODERATE| STABLE
+    PSI -->|Yes| STABLE
 
-    RETRAIN --> RT["Re-run DVC pipeline\ningestion → preprocess\n→ train → evaluate"]
+    RETRAIN --> RT["Re-run DVC pipeline\ningest → preprocess → train → evaluate"]
 ```
 
 ---
 
-## 7. Serving Architecture — FastAPI
+## 9. Serving Architecture — FastAPI
 
 ```mermaid
 graph LR
     USER([User / Browser])
     API["FastAPI app.py\nlocalhost:8000"]
-    CNN3["cnn_v1.h5\n+ tokenizer.pkl\n(loaded at startup)"]
-    SCRAPE["data/new_scraped/*.csv\n(latest file)"]
+    CNN3["cnn_v1.h5\n+ tokenizer.pkl\nloaded at startup"]
+    SCRAPE["data/new_scraped/*.csv\nlatest file"]
     TMPL["Jinja2 Template\nindex.html"]
 
     USER -->|GET /| API
-    USER -->|POST /analyze\nheadline text| API
+    USER -->|POST /analyze  headline| API
     API --> CNN3
     API --> SCRAPE
     API --> TMPL --> USER
 
     subgraph INFERENCE["Inference Steps"]
-        T1["tokenize → pad\n(MAX_LEN=100)"]
+        T1["tokenize → pad\nMAX_LEN=100"]
         T2["model.predict"]
         T3["verdict: Real / Fake\n+ confidence %"]
         T1 --> T2 --> T3
     end
 
     CNN3 --> INFERENCE
-```
-
----
-
-## 8. Planned TRUBA Scale-Up Flow
-
-```mermaid
-flowchart TD
-    subgraph LOCAL["Local Machine"]
-        CODE["Updated DVC pipeline\n+ HuggingFace Trainer script\ntrain_transformer.py"]
-        PUSH["git push + dvc push"]
-    end
-
-    subgraph TRUBA["TRUBA HPC Cluster"]
-        SLURM["SLURM job submission\n#SBATCH --gres=gpu:1"]
-        ENV["Python venv\ntransformers + datasets"]
-        TRF["Fine-tune\nBERTweet / RoBERTa / DeBERTa-v3\non WELFake / PHEME full text"]
-        CKPT["Checkpoint saved\nmodels/berttweet_v1/"]
-    end
-
-    subgraph RESULTS["Results → Thesis"]
-        MLF2["MLflow\nexperiment comparison"]
-        TABLE["Comparison Table\nClassical → LSTM → CNN → Transformer\nAcc / F1 / AUC-ROC"]
-    end
-
-    CODE --> PUSH --> TRUBA
-    SLURM --> ENV --> TRF --> CKPT
-    CKPT --> MLF2 --> TABLE
 ```

@@ -19,7 +19,6 @@ push_status() {
     local msg="$1 [skip ci]"
     git pull origin master --rebase --quiet 2>/dev/null || true
     git add -A 2>/dev/null || true
-    # commit only if there's something staged, otherwise empty commit
     git diff --cached --quiet && \
         git commit --allow-empty -m "$msg" || \
         git commit -m "$msg"
@@ -72,13 +71,11 @@ echo "--- Fine-tuning BERTweet ---"
 python src/train_bertweet.py
 
 echo "=== [5/5] Push results to GitHub ==="
-echo "--- git pull ---"
-git pull origin master --rebase
-echo "--- git add ---"
+# fetch + reset avoids rebase conflicts if master moved while training ran
+git fetch origin master
+git reset --mixed origin/master
 git add metrics/bertweet_scores.json metrics/baselines.json
-echo "--- git commit (skipped if nothing changed) ---"
 git diff --cached --quiet || git commit -m "Vast.ai: BERTweet fine-tuned on PHEME $(date -u '+%Y-%m-%d')"
-echo "--- git push ---"
 git push origin master
 trap - ERR
 

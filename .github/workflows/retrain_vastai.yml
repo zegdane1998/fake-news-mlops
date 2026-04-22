@@ -6,7 +6,7 @@ on:
 jobs:
   retrain:
     runs-on: ubuntu-latest
-    timeout-minutes: 210
+    timeout-minutes: 150
 
     steps:
       - uses: actions/checkout@v3
@@ -84,15 +84,12 @@ jobs:
           echo "Waiting for instance $INSTANCE_ID to reach 'running' status..."
           for check in $(seq 1 20); do
             sleep 30
-            STATUS=$(curl -s \
-              -H "Authorization: Bearer ${{ secrets.VASTAI_API_KEY }}" \
-              "https://console.vast.ai/api/v0/instances/?owner=me" \
+            STATUS=$(vastai show instance "$INSTANCE_ID" --raw \
               | python3 -c "
           import sys, json
-          data = json.load(sys.stdin)
-          insts = data.get('instances', [])
-          match = next((i for i in insts if str(i.get('id','')) == '$INSTANCE_ID'), None)
-          print(match.get('actual_status', 'unknown') if match else 'not_found')
+          d = json.load(sys.stdin)
+          inst = d[0] if isinstance(d, list) else d
+          print(inst.get('actual_status', 'unknown'))
           " 2>/dev/null || echo "unknown")
             echo "[$check/20] status=$STATUS"
             if [ "$STATUS" = "running" ]; then
@@ -110,8 +107,8 @@ jobs:
           BEFORE_SHA="${{ github.sha }}"
           INSTANCE_ID="${{ steps.instance.outputs.instance_id }}"
           echo "BEFORE_SHA=$BEFORE_SHA"
-          echo "Polling every 2 min for training status commit (up to 180 min)..."
-          for i in $(seq 1 90); do
+          echo "Polling every 2 min for training status commit (up to 120 min)..."
+          for i in $(seq 1 60); do
             sleep 120
             RESPONSE=$(curl -s \
               -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \

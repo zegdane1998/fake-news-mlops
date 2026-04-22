@@ -47,8 +47,7 @@ RANDOM_STATE = int(P["random_state"])
 if not torch.cuda.is_available():
     raise RuntimeError("No CUDA GPU found — aborting to avoid silent CPU training")
 DEVICE = "cuda"
-N_GPUS = torch.cuda.device_count()
-print(f"Device: {DEVICE}  ({N_GPUS}x {torch.cuda.get_device_name(0)})")
+print(f"Device: {DEVICE}  ({torch.cuda.get_device_name(0)})")
 
 
 # ── Dataset ────────────────────────────────────────────────────────────────────
@@ -85,12 +84,11 @@ def train_epoch(model, loader, optimizer, scheduler):
             attention_mask=batch["attention_mask"].to(DEVICE),
             labels=batch["labels"].to(DEVICE),
         )
-        loss = out.loss.mean()
-        loss.backward()
+        out.loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         optimizer.step()
         scheduler.step()
-        total_loss += loss.item()
+        total_loss += out.loss.item()
     return total_loss / len(loader)
 
 
@@ -105,7 +103,7 @@ def eval_epoch(model, loader):
                 attention_mask=batch["attention_mask"].to(DEVICE),
                 labels=batch["labels"].to(DEVICE),
             )
-            total_loss += out.loss.mean().item()
+            total_loss += out.loss.item()
             probs = torch.softmax(out.logits, dim=-1)[:, 1].cpu().numpy()
             preds = out.logits.argmax(dim=-1).cpu().numpy()
             all_probs.extend(probs)
@@ -147,16 +145,13 @@ def train():
         train_ds = TweetDataset(X_train, y_train, tokenizer)
         val_ds   = TweetDataset(X_val,   y_val,   tokenizer)
 
-        effective_batch = BATCH_SIZE * N_GPUS
-        train_loader = DataLoader(train_ds, batch_size=effective_batch, shuffle=True,  num_workers=2)
-        val_loader   = DataLoader(val_ds,   batch_size=effective_batch, shuffle=False, num_workers=2)
+        train_loader = DataLoader(train_ds, batch_size=BATCH_SIZE, shuffle=True,  num_workers=2)
+        val_loader   = DataLoader(val_ds,   batch_size=BATCH_SIZE, shuffle=False, num_workers=2)
 
         # 3. Model
         model = AutoModelForSequenceClassification.from_pretrained(
             MODEL_NAME, num_labels=2
         ).to(DEVICE)
-        if N_GPUS > 1:
-            model = torch.nn.DataParallel(model)
 
         # 4. Optimiser + scheduler
         optimizer = torch.optim.AdamW(
@@ -191,8 +186,7 @@ def train():
 
             if f1 > best_f1:
                 best_f1 = f1
-                unwrapped = model.module if hasattr(model, "module") else model
-                unwrapped.save_pretrained("models/bertweet_finetuned")
+                model.save_pretrained("models/bertweet_finetuned")
                 tokenizer.save_pretrained("models/bertweet_finetuned")
                 print(f"  ✓ Best model saved (f1={best_f1:.4f})")
 
