@@ -16,7 +16,7 @@ if [ -z "$GITHUB_TOKEN" ]; then
 fi
 
 push_status() {
-    local msg="$1 [skip ci]"
+    local msg="$1"
     git pull origin master --rebase --quiet 2>/dev/null || true
     git add -A 2>/dev/null || true
     git diff --cached --quiet && \
