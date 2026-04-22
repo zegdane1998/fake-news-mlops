@@ -51,7 +51,7 @@ graph TB
     subgraph CI["CI/CD — GitHub Actions"]
         GHA1[Python CI\nmain.yml]
         GHA2[Scrape & Monitor\nscrape_and_monitor.yml\ndaily 06:00 UTC]
-        GHA3[Retrain on Vast.ai\nretrain_vastai.yml\nmanual trigger]
+        GHA3[Retrain on Vast.ai\nretrain_vastai.yml\nauto on drift]
     end
 
     DS1 --> ING
@@ -104,8 +104,8 @@ flowchart LR
 ```mermaid
 flowchart TD
     subgraph GHA["GitHub Actions — retrain_vastai.yml"]
-        TRIGGER([Manual trigger\nworkflow_dispatch])
-        LAUNCH[Find cheapest offer\n2× RTX 3090\nLaunch instance]
+        TRIGGER([Auto-triggered by drift\nOR manual workflow_dispatch])
+        LAUNCH[Find cheapest offer\n2× RTX 3090  $0.30–$0.90/hr\nLaunch instance]
         VERIFY[Verify instance running\nREST API polling]
         POLL[Poll master commits\nevery 2 min — up to 180 min]
         DESTROY[Destroy instance\nalways]
@@ -242,8 +242,8 @@ sequenceDiagram
         GHA->>GIT: commit models/ metrics/
     end
 
-    Note over GHA,VAST: Manual trigger — retrain_vastai.yml
-    GHA->>VAST: launch 2× RTX 3090 instance
+    Note over GHA,VAST: Auto-triggered by drift — retrain_vastai.yml
+    GHA->>VAST: launch 2× RTX 3090 instance ($0.30–$0.90/hr)
     VAST->>VAST: download PHEME → preprocess<br/>fine-tune BERTweet  5 epochs
     VAST->>GIT: commit bertweet_scores.json
     GHA->>VAST: destroy instance
