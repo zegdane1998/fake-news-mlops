@@ -16,7 +16,7 @@ if [ -z "$GITHUB_TOKEN" ]; then
 fi
 
 push_status() {
-    local msg="$1"
+    local msg="$1 [skip ci]"
     git pull origin master --rebase --quiet 2>/dev/null || true
     git add -A 2>/dev/null || true
     # commit only if there's something staged, otherwise empty commit
@@ -40,7 +40,7 @@ git config user.name "Abdellah Zegdane"
 git remote set-url origin https://${GITHUB_TOKEN}@github.com/${REPO}.git
 
 # Push failure status if anything below exits unexpectedly
-trap 'LAST_ERR=$(tail -5 /root/train.log 2>/dev/null | tr "\n" " " | cut -c1-200); push_status "Vast.ai: training FAILED at $(date -u +%H:%M:%S) — $LAST_ERR"' ERR
+trap 'LAST_ERR=$(tail -10 /root/train.log 2>/dev/null | tr "\n" " " | cut -c1-300); push_status "Vast.ai: training FAILED at $(date -u +%H:%M:%S) — $LAST_ERR"' ERR
 
 push_status "Vast.ai: training started $(date -u '+%Y-%m-%d %H:%M')"
 
@@ -72,9 +72,13 @@ echo "--- Fine-tuning BERTweet ---"
 python src/train_bertweet.py
 
 echo "=== [5/5] Push results to GitHub ==="
+echo "--- git pull ---"
 git pull origin master --rebase
+echo "--- git add ---"
 git add metrics/bertweet_scores.json metrics/baselines.json
-git commit -m "Vast.ai: BERTweet fine-tuned on PHEME $(date -u '+%Y-%m-%d')"
+echo "--- git commit (skipped if nothing changed) ---"
+git diff --cached --quiet || git commit -m "Vast.ai: BERTweet fine-tuned on PHEME $(date -u '+%Y-%m-%d')"
+echo "--- git push ---"
 git push origin master
 trap - ERR
 
