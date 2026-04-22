@@ -39,10 +39,10 @@
     "error_analysis_path": "metrics/error_analysis.json"
   },
   "BERTweet": {
-    "accuracy": 0.9625,
-    "f1_macro": 0.8965,
-    "f1_fake": 0.8139,
-    "f1_real": 0.9791,
-    "roc_auc": 0.9644
+    "accuracy": 0.9616,
+    "f1_macro": 0.8961,
+    "f1_fake": 0.8136,
+    "f1_real": 0.9786,
+    "roc_auc": 0.9594
   }
 }
