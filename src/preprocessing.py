@@ -46,8 +46,8 @@ def preprocess_pipeline(input_path, output_path, mode="headline"):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--input",  default="data/raw/gossipcop_combined.csv")
-    parser.add_argument("--output", default="data/processed/gossipcop_cleaned.csv")
-    parser.add_argument("--mode",   default="headline", choices=["headline", "tweet"])
+    parser.add_argument("--input",  default="data/raw/pheme_tweets.csv")
+    parser.add_argument("--output", default="data/processed/pheme_cleaned.csv")
+    parser.add_argument("--mode",   default="tweet", choices=["headline", "tweet"])
     args = parser.parse_args()
     preprocess_pipeline(args.input, args.output, args.mode)

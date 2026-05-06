@@ -124,21 +124,56 @@ def train():
 
     mlflow.set_experiment("fake-news-bertweet")
 
-    with mlflow.start_run(run_name="bertweet_pheme"):
+    # ── Determine which dataset to use ────────────────────────────────────────
+    augmented_path = "data/processed/pheme_augmented.csv"
+    pheme_path = "data/processed/pheme_cleaned.csv"
+    
+    if os.path.exists(augmented_path):
+        data_path = augmented_path
+        dataset_name = "PHEME+PseudoLabels"
+        print(f"\n{'='*70}")
+        print(f"Using AUGMENTED dataset: {augmented_path}")
+        print(f"{'='*70}\n")
+    elif os.path.exists(pheme_path):
+        data_path = pheme_path
+        dataset_name = "PHEME"
+        print(f"\n{'='*70}")
+        print(f"Using PHEME dataset only: {pheme_path}")
+        print(f"{'='*70}\n")
+    else:
+        raise FileNotFoundError("No training data found (neither PHEME nor augmented)")
+
+    with mlflow.start_run(run_name=f"bertweet_{dataset_name.lower().replace('+', '_')}"):
+        mlflow.log_param("dataset", dataset_name)
         mlflow.log_params(P)
 
         # 1. Data
-        df = pd.read_csv("data/processed/pheme_cleaned.csv").dropna(
+        df = pd.read_csv(data_path).dropna(
             subset=["clean_title", "label"]
         )
         df["label"] = df["label"].astype(int)
+        
+        # If augmented dataset, log the composition
+        if 'source' in df.columns:
+            n_ground_truth = (df['source'] == 'ground_truth').sum()
+            n_pseudo = (df['source'] == 'pseudo_label').sum()
+            print(f"Dataset composition:")
+            print(f"  Ground truth (PHEME): {n_ground_truth}")
+            print(f"  Pseudo-labeled:       {n_pseudo}")
+            print(f"  Total:                {len(df)}")
+            mlflow.log_param("n_ground_truth", n_ground_truth)
+            mlflow.log_param("n_pseudo_labeled", n_pseudo)
+            mlflow.log_param("pseudo_ratio", round(n_pseudo / len(df), 4))
+        
         X, y = df["clean_title"].astype(str), df["label"]
 
         X_train, X_val, y_train, y_val = train_test_split(
             X, y, test_size=TEST_SIZE, random_state=RANDOM_STATE, stratify=y
         )
         mlflow.log_params({"train_size": len(X_train), "val_size": len(X_val)})
-        print(f"Train: {len(X_train)}  Val: {len(X_val)}")
+        print(f"\nTrain: {len(X_train)}  Val: {len(X_val)}")
+        print(f"  Train - Fake: {(y_train==0).sum()}  Real: {(y_train==1).sum()}")
+        print(f"  Val   - Fake: {(y_val==0).sum()}    Real: {(y_val==1).sum()}\n")
 
         # 2. Tokenizer + datasets
         tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, use_fast=False)
@@ -205,6 +240,7 @@ def train():
             "f1_fake":   round(float(f1_score(labels, preds, pos_label=0)), 4),
             "f1_real":   round(float(f1_score(labels, preds, pos_label=1)), 4),
             "roc_auc":   round(float(roc_auc_score(labels, probs)), 4),
+            "dataset":   dataset_name,
         }
         with open("metrics/bertweet_scores.json", "w") as f:
             json.dump(scores, f, indent=2)
@@ -213,7 +249,9 @@ def train():
         mlflow.log_artifact("metrics/bertweet_scores.json")
         mlflow.log_artifact("models/bertweet_finetuned", artifact_path="model")
 
-        print(f"\nFinal scores: {scores}")
+        print(f"\n{'='*70}")
+        print(f"Final scores: {scores}")
+        print(f"{'='*70}\n")
 
         # Merge into baselines.json so the comparison table is complete
         baselines_path = "metrics/baselines.json"
@@ -225,7 +263,7 @@ def train():
         baselines["BERTweet"] = scores
         with open(baselines_path, "w") as f:
             json.dump(baselines, f, indent=2)
-        print("BERTweet results merged into metrics/baselines.json")
+        print("BERTweet results merged into metrics/baselines.json\n")
 
 
 if __name__ == "__main__":

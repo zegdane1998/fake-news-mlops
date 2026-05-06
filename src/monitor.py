@@ -40,10 +40,10 @@ US_POLITICAL_KEYWORDS = [
 # ── Statistical drift detection ────────────────────────────────────────────────
 
 def build_reference_distribution(model, tokenizer, max_len):
-    """Compute model prediction probabilities on the training split.
+    """Compute model prediction probabilities on the PHEME training split.
     Saved to models/reference_score_distribution.npy for future runs.
     """
-    df = pd.read_csv('data/processed/gossipcop_cleaned.csv').dropna(
+    df = pd.read_csv('data/processed/pheme_cleaned.csv').dropna(
         subset=['clean_title', 'label']
     )
     df['label'] = df['label'].astype(int)
@@ -110,6 +110,123 @@ def _psi_label(psi):
     return "SIGNIFICANT"
 
 
+# ── Pseudo-labeling for retraining ────────────────────────────────────────────
+
+def generate_pseudo_labels(model, tokenizer, max_len, confidence_threshold=0.3):
+    """
+    Generate pseudo-labels from accumulated scraped tweets.
+    
+    Args:
+        model: Trained classification model
+        tokenizer: Text tokenizer
+        max_len: Maximum sequence length
+        confidence_threshold: Minimum distance from 0.5 for confident predictions
+        
+    Returns:
+        DataFrame with pseudo-labeled tweets (only confident predictions)
+    """
+    data_dir = 'data/new_scraped/'
+    if not os.path.exists(data_dir):
+        print("No scraped data found for pseudo-labeling.")
+        return pd.DataFrame()
+    
+    # Load all accumulated scraped tweets
+    csv_files = [f for f in os.listdir(data_dir) if f.endswith('.csv')]
+    if not csv_files:
+        print("No scraped CSV files found.")
+        return pd.DataFrame()
+    
+    all_tweets = []
+    for csv_file in csv_files:
+        df_temp = pd.read_csv(os.path.join(data_dir, csv_file))
+        all_tweets.append(df_temp)
+    
+    df_scraped = pd.concat(all_tweets, ignore_index=True)
+    df_scraped = df_scraped.drop_duplicates(subset=['text'], keep='first')
+    print(f"Loaded {len(df_scraped)} unique scraped tweets for pseudo-labeling.")
+    
+    # Clean and prepare texts
+    df_scraped['clean_title'] = df_scraped['text'].apply(clean_text)
+    
+    # Get model predictions
+    sequences = tokenizer.texts_to_sequences(df_scraped['clean_title'])
+    padded = pad_sequences(sequences, maxlen=max_len, padding='post', truncating='post')
+    predictions = model.predict(padded, batch_size=256, verbose=0).flatten()
+    
+    # Keep only confident predictions (far from decision boundary 0.5)
+    confidence_scores = np.abs(predictions - 0.5)
+    confident_mask = confidence_scores > confidence_threshold
+    
+    df_confident = df_scraped[confident_mask].copy()
+    df_confident['label'] = (predictions[confident_mask] > 0.5).astype(int)
+    df_confident['confidence'] = confidence_scores[confident_mask]
+    df_confident['source'] = 'pseudo_label'
+    
+    n_fake = (df_confident['label'] == 0).sum()
+    n_real = (df_confident['label'] == 1).sum()
+    
+    print(f"Pseudo-labeled {len(df_confident)} confident tweets:")
+    print(f"  - {n_fake} labeled as FAKE (p < {0.5 - confidence_threshold:.2f})")
+    print(f"  - {n_real} labeled as REAL (p > {0.5 + confidence_threshold:.2f})")
+    print(f"  - Discarded {(~confident_mask).sum()} uncertain predictions")
+    
+    return df_confident[['clean_title', 'label', 'confidence', 'source']]
+
+
+def create_augmented_dataset(pseudo_labeled_df, output_path='data/processed/pheme_augmented.csv'):
+    """
+    Combine PHEME ground truth with pseudo-labeled tweets for retraining.
+    
+    Args:
+        pseudo_labeled_df: DataFrame with pseudo-labeled tweets
+        output_path: Path to save augmented dataset
+        
+    Returns:
+        Path to augmented dataset
+    """
+    # Load original PHEME data
+    df_pheme = pd.read_csv('data/processed/pheme_cleaned.csv').dropna(
+        subset=['clean_title', 'label']
+    )
+    df_pheme['label'] = df_pheme['label'].astype(int)
+    df_pheme['source'] = 'ground_truth'
+    df_pheme['confidence'] = 1.0  # Ground truth has perfect confidence
+    
+    # Combine datasets
+    df_combined = pd.concat([
+        df_pheme[['clean_title', 'label', 'source', 'confidence']],
+        pseudo_labeled_df[['clean_title', 'label', 'source', 'confidence']]
+    ], ignore_index=True)
+    
+    # Save augmented dataset
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    df_combined.to_csv(output_path, index=False)
+    
+    n_pheme = len(df_pheme)
+    n_pseudo = len(pseudo_labeled_df)
+    n_total = len(df_combined)
+    
+    print(f"\nAugmented training dataset created:")
+    print(f"  - PHEME (ground truth): {n_pheme} ({n_pheme/n_total*100:.1f}%)")
+    print(f"  - Pseudo-labeled:       {n_pseudo} ({n_pseudo/n_total*100:.1f}%)")
+    print(f"  - Total:                {n_total}")
+    print(f"  - Saved to: {output_path}")
+    
+    # Save metadata for paper
+    metadata = {
+        "created_at": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "n_ground_truth": int(n_pheme),
+        "n_pseudo_labeled": int(n_pseudo),
+        "n_total": int(n_total),
+        "pseudo_label_ratio": round(n_pseudo / n_total, 4),
+        "confidence_threshold": 0.3,
+    }
+    with open('metrics/augmented_dataset_metadata.json', 'w') as f:
+        json.dump(metadata, f, indent=2)
+    
+    return output_path
+
+
 # ── Main monitoring loop ───────────────────────────────────────────────────────
 
 def run_monitoring():
@@ -164,7 +281,7 @@ def run_monitoring():
     psi_status = None
 
     if not os.path.exists(ref_path):
-        processed_path = 'data/processed/gossipcop_cleaned.csv'
+        processed_path = 'data/processed/pheme_cleaned.csv'
         if os.path.exists(processed_path):
             print("Building reference distribution (first run)...")
             ref_scores = build_reference_distribution(model, tokenizer, MAX_LEN)
@@ -222,7 +339,24 @@ def run_monitoring():
             reasons.append(f"KS p={ks_result['p_value']:.4f}")
         if psi_value is not None and psi_value >= 0.25:
             reasons.append(f"PSI={psi_value:.4f}")
-        print(f"WARNING: Drift detected — {', '.join(reasons)}. Triggering retraining.")
+        
+        print(f"\n{'='*70}")
+        print(f"WARNING: Drift detected — {', '.join(reasons)}")
+        print(f"{'='*70}")
+        
+        # Generate pseudo-labels for scraped tweets
+        print("\n[Pseudo-Labeling] Generating labels for accumulated tweets...")
+        pseudo_labeled_df = generate_pseudo_labels(model, tokenizer, MAX_LEN, confidence_threshold=0.3)
+        
+        if len(pseudo_labeled_df) > 0:
+            # Create augmented dataset: PHEME + pseudo-labels
+            augmented_path = create_augmented_dataset(pseudo_labeled_df)
+            print(f"\n✓ Augmented dataset ready for retraining: {augmented_path}")
+            print(f"✓ Triggering GPU retraining workflow...")
+        else:
+            print("\n⚠ Not enough confident predictions for pseudo-labeling.")
+            print("  Retraining will proceed on PHEME only.")
+        
         sys.exit(1)
 
     print("System Stable: Model performing well on current US news.")
