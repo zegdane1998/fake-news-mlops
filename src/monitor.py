@@ -1,73 +1,91 @@
 import os
+import re
 import sys
 import json
-import pickle
 import numpy as np
 import pandas as pd
-import tensorflow as tf
-from datetime import datetime
+from datetime import datetime, date
 from scipy import stats
 from sklearn.model_selection import train_test_split
-from tensorflow.keras.preprocessing.sequence import pad_sequences
 
-MAX_LEN = 100  # must match src/train.py
-
-# Resolve all paths relative to the project root (one level above src/)
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 os.chdir(PROJECT_ROOT)
 
-def clean_text(text):
-    import re
-    text = str(text).lower()
-    text = re.sub(r'http\S+|www\S+', '', text)
-    text = re.sub(r'[^a-z0-9\s]', '', text)
-    text = re.sub(r'\s+', ' ', text).strip()
-    return text
+# ── Tweet normalisation (must match PHEME preprocessing in download_pheme.py) ──
+
+def normalise_tweet(text):
+    text = str(text)
+    text = re.sub(r"http\S+|www\S+", "HTTPURL", text)
+    text = re.sub(r"@\w+", "@USER", text)
+    return re.sub(r"\s+", " ", text).strip()
+
 
 # ── US political relevancy keywords ───────────────────────────────────────────
+
 US_POLITICAL_KEYWORDS = [
-    # US-Iran conflict
     'iran', 'iranian', 'irgc', 'tehran', 'khamenei', 'strait of hormuz',
     'airstrike', 'us strikes', 'nuclear deal', 'sanctions', 'persian gulf',
     'houthis', 'proxy war', 'iran missile', 'iran attack', 'middle east',
-    # General US politics
     'congress', 'white house', 'biden', 'trump', 'senate', 'election',
     'democrat', 'republican', 'washington', 'president', 'pentagon',
     'legislation', 'vote', 'ballot', 'campaign', 'policy',
 ]
 
 
-# ── Statistical drift detection ────────────────────────────────────────────────
+# ── BERTweet model loading & inference ───────────────────────────────────────
 
-def build_reference_distribution(model, tokenizer, max_len):
-    """Compute model prediction probabilities on the PHEME training split.
-    Saved to models/reference_score_distribution.npy for future runs.
-    """
+def load_bertweet():
+    import torch
+    from transformers import AutoModelForSequenceClassification, AutoTokenizer
+    model_dir = 'models/bertweet_finetuned'
+    tokenizer = AutoTokenizer.from_pretrained(model_dir, use_fast=False)
+    model = AutoModelForSequenceClassification.from_pretrained(model_dir)
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    model = model.to(device).eval()
+    return model, tokenizer, device
+
+
+def predict_bertweet(model, tokenizer, device, texts, batch_size=64, max_len=128):
+    import torch
+    all_probs = []
+    texts = list(texts)
+    for i in range(0, len(texts), batch_size):
+        batch = texts[i:i + batch_size]
+        enc = tokenizer(
+            batch, max_length=max_len, padding=True,
+            truncation=True, return_tensors='pt'
+        )
+        with torch.no_grad():
+            logits = model(
+                input_ids=enc['input_ids'].to(device),
+                attention_mask=enc['attention_mask'].to(device),
+            ).logits
+            probs = torch.softmax(logits, dim=-1)[:, 1].cpu().numpy()
+        all_probs.extend(probs.tolist())
+    return np.array(all_probs)
+
+
+# ── Reference distribution ────────────────────────────────────────────────────
+
+def build_reference_distribution(model, tokenizer, device):
+    """Compute BERTweet predictions on the PHEME training split and cache them."""
     df = pd.read_csv('data/processed/pheme_cleaned.csv').dropna(
         subset=['clean_title', 'label']
     )
     df['label'] = df['label'].astype(int)
     X, y = df['clean_title'].astype(str), df['label']
-
-    # Use training split only — same seed as train.py
     X_train, _, _, _ = train_test_split(
         X, y, test_size=0.2, random_state=42, stratify=y
     )
-    sequences = tokenizer.texts_to_sequences(X_train)
-    padded = pad_sequences(sequences, maxlen=max_len,
-                           padding='post', truncating='post')
-    ref_scores = model.predict(padded, batch_size=256, verbose=0).flatten()
+    ref_scores = predict_bertweet(model, tokenizer, device, X_train.tolist())
     np.save('models/reference_score_distribution.npy', ref_scores)
     print(f"Reference distribution built: {len(ref_scores)} samples.")
     return ref_scores
 
 
-def ks_test(reference_scores, new_scores):
-    """Kolmogorov-Smirnov test between reference and incoming score distributions.
+# ── Statistical drift tests ───────────────────────────────────────────────────
 
-    Returns dict with ks_statistic, p_value, and drift_detected (p < 0.05).
-    Industry standard: p < 0.05 indicates statistically significant shift.
-    """
+def ks_test(reference_scores, new_scores):
     stat, p_value = stats.ks_2samp(reference_scores, new_scores)
     return {
         "ks_statistic": round(float(stat), 4),
@@ -77,27 +95,20 @@ def ks_test(reference_scores, new_scores):
 
 
 def compute_psi(reference_scores, new_scores, n_bins=10):
-    """Population Stability Index (PSI) between reference and new distributions.
-
-    PSI thresholds (industry standard — cite in thesis):
-      PSI < 0.10  → no significant drift (STABLE)
-      0.10 ≤ PSI < 0.25 → moderate drift (MONITOR)
-      PSI ≥ 0.25  → significant drift (RETRAIN)
+    """Population Stability Index.
+    PSI < 0.10 → STABLE | 0.10–0.25 → MODERATE | ≥ 0.25 → SIGNIFICANT
     """
-    # Bin edges from reference quantiles
     bin_edges = np.percentile(reference_scores, np.linspace(0, 100, n_bins + 1))
     bin_edges[0]  = 0.0
     bin_edges[-1] = 1.0
-    bin_edges = np.unique(bin_edges)  # remove duplicates at extremes
+    bin_edges = np.unique(bin_edges)
 
     ref_counts, _ = np.histogram(reference_scores, bins=bin_edges)
     new_counts, _ = np.histogram(new_scores,       bins=bin_edges)
 
-    # Convert to fractions; replace zeros to avoid log(0)
     eps = 1e-4
     ref_frac = np.maximum(ref_counts / len(reference_scores), eps)
     new_frac = np.maximum(new_counts / len(new_scores),       eps)
-
     psi = float(np.sum((new_frac - ref_frac) * np.log(new_frac / ref_frac)))
     return round(psi, 4)
 
@@ -110,120 +121,119 @@ def _psi_label(psi):
     return "SIGNIFICANT"
 
 
+# ── Consecutive low-confidence tracking (3-day rule) ─────────────────────────
+
+CONFIDENCE_HISTORY_PATH = 'metrics/confidence_history.json'
+
+
+def load_confidence_history():
+    if os.path.exists(CONFIDENCE_HISTORY_PATH):
+        with open(CONFIDENCE_HISTORY_PATH) as f:
+            return json.load(f).get('history', [])
+    return []
+
+
+def update_confidence_history(avg_conf):
+    history = load_confidence_history()
+    today = date.today().isoformat()
+    # Replace today's entry if already present, otherwise append
+    history = [h for h in history if h['date'] != today]
+    history.append({'date': today, 'avg_confidence': round(avg_conf, 4)})
+    # Keep only last 30 days
+    history = sorted(history, key=lambda h: h['date'])[-30:]
+    os.makedirs('metrics', exist_ok=True)
+    with open(CONFIDENCE_HISTORY_PATH, 'w') as f:
+        json.dump({'history': history}, f, indent=2)
+    return history
+
+
+def sustained_low_confidence(history, threshold=0.30, days=3):
+    """True if the last `days` consecutive entries all have confidence < threshold."""
+    recent = sorted(history, key=lambda h: h['date'])[-days:]
+    if len(recent) < days:
+        return False
+    return all(h['avg_confidence'] < threshold for h in recent)
+
+
 # ── Pseudo-labeling for retraining ────────────────────────────────────────────
 
-def generate_pseudo_labels(model, tokenizer, max_len, confidence_threshold=0.3):
-    """
-    Generate pseudo-labels from accumulated scraped tweets.
-    
-    Args:
-        model: Trained classification model
-        tokenizer: Text tokenizer
-        max_len: Maximum sequence length
-        confidence_threshold: Minimum distance from 0.5 for confident predictions
-        
-    Returns:
-        DataFrame with pseudo-labeled tweets (only confident predictions)
-    """
+def generate_pseudo_labels(model, tokenizer, device, confidence_threshold=0.3):
     data_dir = 'data/new_scraped/'
     if not os.path.exists(data_dir):
         print("No scraped data found for pseudo-labeling.")
         return pd.DataFrame()
-    
-    # Load all accumulated scraped tweets
+
     csv_files = [f for f in os.listdir(data_dir) if f.endswith('.csv')]
     if not csv_files:
         print("No scraped CSV files found.")
         return pd.DataFrame()
-    
-    all_tweets = []
-    for csv_file in csv_files:
-        df_temp = pd.read_csv(os.path.join(data_dir, csv_file))
-        all_tweets.append(df_temp)
-    
-    df_scraped = pd.concat(all_tweets, ignore_index=True)
-    df_scraped = df_scraped.drop_duplicates(subset=['text'], keep='first')
+
+    df_scraped = pd.concat(
+        [pd.read_csv(os.path.join(data_dir, f)) for f in csv_files],
+        ignore_index=True
+    ).drop_duplicates(subset=['text'])
     print(f"Loaded {len(df_scraped)} unique scraped tweets for pseudo-labeling.")
-    
-    # Clean and prepare texts
-    df_scraped['clean_title'] = df_scraped['text'].apply(clean_text)
-    
-    # Get model predictions
-    sequences = tokenizer.texts_to_sequences(df_scraped['clean_title'])
-    padded = pad_sequences(sequences, maxlen=max_len, padding='post', truncating='post')
-    predictions = model.predict(padded, batch_size=256, verbose=0).flatten()
-    
-    # Keep only confident predictions (far from decision boundary 0.5)
+
+    # Normalise exactly as PHEME preprocessing does
+    df_scraped['clean_title'] = df_scraped['text'].apply(normalise_tweet)
+
+    predictions = predict_bertweet(
+        model, tokenizer, device, df_scraped['clean_title'].tolist()
+    )
+
     confidence_scores = np.abs(predictions - 0.5)
     confident_mask = confidence_scores > confidence_threshold
-    
+
     df_confident = df_scraped[confident_mask].copy()
-    df_confident['label'] = (predictions[confident_mask] > 0.5).astype(int)
+    df_confident['label']      = (predictions[confident_mask] > 0.5).astype(int)
     df_confident['confidence'] = confidence_scores[confident_mask]
-    df_confident['source'] = 'pseudo_label'
-    
+    df_confident['source']     = 'pseudo_label'
+
     n_fake = (df_confident['label'] == 0).sum()
     n_real = (df_confident['label'] == 1).sum()
-    
     print(f"Pseudo-labeled {len(df_confident)} confident tweets:")
-    print(f"  - {n_fake} labeled as FAKE (p < {0.5 - confidence_threshold:.2f})")
-    print(f"  - {n_real} labeled as REAL (p > {0.5 + confidence_threshold:.2f})")
+    print(f"  - {n_fake} FAKE  (p < {0.5 - confidence_threshold:.2f})")
+    print(f"  - {n_real} REAL  (p > {0.5 + confidence_threshold:.2f})")
     print(f"  - Discarded {(~confident_mask).sum()} uncertain predictions")
-    
+
     return df_confident[['clean_title', 'label', 'confidence', 'source']]
 
 
-def create_augmented_dataset(pseudo_labeled_df, output_path='data/processed/pheme_augmented.csv'):
-    """
-    Combine PHEME ground truth with pseudo-labeled tweets for retraining.
-    
-    Args:
-        pseudo_labeled_df: DataFrame with pseudo-labeled tweets
-        output_path: Path to save augmented dataset
-        
-    Returns:
-        Path to augmented dataset
-    """
-    # Load original PHEME data
+def create_augmented_dataset(pseudo_df, output_path='data/processed/pheme_augmented.csv'):
     df_pheme = pd.read_csv('data/processed/pheme_cleaned.csv').dropna(
         subset=['clean_title', 'label']
     )
-    df_pheme['label'] = df_pheme['label'].astype(int)
-    df_pheme['source'] = 'ground_truth'
-    df_pheme['confidence'] = 1.0  # Ground truth has perfect confidence
-    
-    # Combine datasets
+    df_pheme['label']      = df_pheme['label'].astype(int)
+    df_pheme['source']     = 'ground_truth'
+    df_pheme['confidence'] = 1.0
+
     df_combined = pd.concat([
         df_pheme[['clean_title', 'label', 'source', 'confidence']],
-        pseudo_labeled_df[['clean_title', 'label', 'source', 'confidence']]
+        pseudo_df[['clean_title', 'label', 'source', 'confidence']],
     ], ignore_index=True)
-    
-    # Save augmented dataset
+
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     df_combined.to_csv(output_path, index=False)
-    
-    n_pheme = len(df_pheme)
-    n_pseudo = len(pseudo_labeled_df)
-    n_total = len(df_combined)
-    
-    print(f"\nAugmented training dataset created:")
-    print(f"  - PHEME (ground truth): {n_pheme} ({n_pheme/n_total*100:.1f}%)")
-    print(f"  - Pseudo-labeled:       {n_pseudo} ({n_pseudo/n_total*100:.1f}%)")
-    print(f"  - Total:                {n_total}")
-    print(f"  - Saved to: {output_path}")
-    
-    # Save metadata for paper
+
+    n_pheme  = len(df_pheme)
+    n_pseudo = len(pseudo_df)
+    n_total  = len(df_combined)
+    print(f"\nAugmented dataset created:")
+    print(f"  PHEME (ground truth): {n_pheme}  ({n_pheme/n_total*100:.1f}%)")
+    print(f"  Pseudo-labeled:       {n_pseudo} ({n_pseudo/n_total*100:.1f}%)")
+    print(f"  Total:                {n_total}")
+
     metadata = {
-        "created_at": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "n_ground_truth": int(n_pheme),
+        "created_at":      datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "n_ground_truth":  int(n_pheme),
         "n_pseudo_labeled": int(n_pseudo),
-        "n_total": int(n_total),
+        "n_total":         int(n_total),
         "pseudo_label_ratio": round(n_pseudo / n_total, 4),
         "confidence_threshold": 0.3,
     }
     with open('metrics/augmented_dataset_metadata.json', 'w') as f:
         json.dump(metadata, f, indent=2)
-    
+
     return output_path
 
 
@@ -248,68 +258,78 @@ def run_monitoring():
         key=os.path.getmtime
     )
     df = pd.read_csv(latest_file)
-    print(f"Monitoring on: {latest_file} ({len(df)} articles)")
+    print(f"Monitoring on: {latest_file} ({len(df)} tweets)")
 
-    # 2. Relevancy check
+    # 2. Relevancy check — diagnostic only, does NOT trigger retraining
     df['is_relevant'] = df['text'].str.lower().apply(
         lambda x: any(kw in str(x) for kw in US_POLITICAL_KEYWORDS)
     )
     relevancy_rate = df['is_relevant'].mean()
-    print(f"US Political Relevancy Rate: {relevancy_rate:.2%}")
+    print(f"US Political Relevancy Rate: {relevancy_rate:.2%}  (diagnostic only)")
+    if relevancy_rate < 0.30:
+        print("  WARNING: low relevancy — possible scraper data-quality issue, "
+              "not a drift trigger.")
 
-    # 3. Model inference
-    model = tf.keras.models.load_model('models/cnn_v1.h5')
-    with open('models/tokenizer.pkl', 'rb') as f:
-        tokenizer = pickle.load(f)
+    # 3. BERTweet inference
+    model_dir = 'models/bertweet_finetuned'
+    if not os.path.exists(model_dir):
+        print("BERTweet model not found — skipping monitoring.")
+        sys.exit(0)
 
-    df['cleaned'] = df['text'].apply(clean_text)
-    sequences = tokenizer.texts_to_sequences(df['cleaned'])
-    padded = pad_sequences(sequences, maxlen=MAX_LEN,
-                           padding='post', truncating='post')
-    predictions = model.predict(padded, verbose=0)
+    model, tokenizer, device = load_bertweet()
+    print(f"BERTweet loaded on {device}")
 
-    avg_conf = float(np.mean(np.abs(predictions - 0.5)) * 2)
+    df['clean'] = df['text'].apply(normalise_tweet)
+    predictions = predict_bertweet(model, tokenizer, device, df['clean'].tolist())
+
+    # conf = mean |p - 0.5|  (range 0–0.5; high means decisive)
+    avg_conf = float(np.mean(np.abs(predictions - 0.5)))
     pred_std  = float(np.std(predictions))
-    print(f"Avg decision confidence: {avg_conf:.4f} (threshold: 0.30)")
+    print(f"Avg decision confidence: {avg_conf:.4f}  (threshold: 0.15 ≈ 0.30 scaled)")
     print(f"Prediction std-dev:      {pred_std:.4f}")
 
-    # 4. Statistical drift detection (skipped if reference data unavailable)
-    ref_path = 'models/reference_score_distribution.npy'
-    new_scores = predictions.flatten()
-    ks_result = None
-    psi_value = None
+    # 4. Update 3-day confidence history
+    history = update_confidence_history(avg_conf)
+    low_conf_streak = sustained_low_confidence(history, threshold=0.15, days=3)
+
+    # 5. Statistical drift detection
+    ref_path   = 'models/reference_score_distribution.npy'
+    new_scores = predictions
+    ks_result  = None
+    psi_value  = None
     psi_status = None
 
+    processed_path = 'data/processed/pheme_cleaned.csv'
     if not os.path.exists(ref_path):
-        processed_path = 'data/processed/pheme_cleaned.csv'
         if os.path.exists(processed_path):
             print("Building reference distribution (first run)...")
-            ref_scores = build_reference_distribution(model, tokenizer, MAX_LEN)
-            ks_result  = ks_test(ref_scores, new_scores)
-            psi_value  = compute_psi(ref_scores, new_scores)
-            psi_status = _psi_label(psi_value)
+            ref_scores = build_reference_distribution(model, tokenizer, device)
         else:
             print("Reference distribution unavailable — skipping KS/PSI tests.")
+            ref_scores = None
     else:
         ref_scores = np.load(ref_path)
         print(f"Reference distribution loaded: {len(ref_scores)} samples.")
+
+    if ref_scores is not None:
         ks_result  = ks_test(ref_scores, new_scores)
         psi_value  = compute_psi(ref_scores, new_scores)
         psi_status = _psi_label(psi_value)
-
-    if ks_result:
-        print(f"KS-Test  : stat={ks_result['ks_statistic']:.4f}  "
+        print(f"KS-Test : stat={ks_result['ks_statistic']:.4f}  "
               f"p={ks_result['p_value']:.4f}  drift={ks_result['drift_detected']}")
-        print(f"PSI      : {psi_value:.4f} ({psi_status})")
+        print(f"PSI     : {psi_value:.4f} ({psi_status})")
 
-    # 5. Save drift report
+    # 6. Retraining decision — three conditions from the paper (Section 7.2):
+    #    (a) PSI ≥ 0.25
+    #    (b) KS p < 0.05
+    #    (c) avg confidence < 0.15 for 3+ consecutive days
     drift_triggered = (
-        relevancy_rate < 0.30
-        or avg_conf < 0.30
+        (psi_value  is not None and psi_value >= 0.25)
         or (ks_result is not None and ks_result['drift_detected'])
-        or (psi_value is not None and psi_value >= 0.25)
+        or low_conf_streak
     )
 
+    # 7. Save drift report
     drift_report = {
         "timestamp":      datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
         "source_file":    latest_file,
@@ -317,7 +337,11 @@ def run_monitoring():
         "relevancy_rate": round(relevancy_rate, 4),
         "avg_confidence": round(avg_conf, 4),
         "pred_std":       round(pred_std, 4),
-        "ks_test":        ks_result,
+        "low_conf_streak_days": sum(
+            1 for h in sorted(history, key=lambda x: x['date'])[-3:]
+            if h['avg_confidence'] < 0.15
+        ),
+        "ks_test": ks_result,
         "psi": {
             "value":  psi_value,
             "status": psi_status,
@@ -331,35 +355,31 @@ def run_monitoring():
 
     if drift_triggered:
         reasons = []
-        if relevancy_rate < 0.30:
-            reasons.append(f"low relevancy ({relevancy_rate:.2%})")
-        if avg_conf < 0.30:
-            reasons.append(f"low confidence ({avg_conf:.4f})")
-        if ks_result and ks_result['drift_detected']:
-            reasons.append(f"KS p={ks_result['p_value']:.4f}")
         if psi_value is not None and psi_value >= 0.25:
             reasons.append(f"PSI={psi_value:.4f}")
-        
+        if ks_result and ks_result['drift_detected']:
+            reasons.append(f"KS p={ks_result['p_value']:.4f}")
+        if low_conf_streak:
+            reasons.append("3-day low confidence streak")
+
         print(f"\n{'='*70}")
         print(f"WARNING: Drift detected — {', '.join(reasons)}")
         print(f"{'='*70}")
-        
-        # Generate pseudo-labels for scraped tweets
+
         print("\n[Pseudo-Labeling] Generating labels for accumulated tweets...")
-        pseudo_labeled_df = generate_pseudo_labels(model, tokenizer, MAX_LEN, confidence_threshold=0.3)
-        
-        if len(pseudo_labeled_df) > 0:
-            # Create augmented dataset: PHEME + pseudo-labels
-            augmented_path = create_augmented_dataset(pseudo_labeled_df)
-            print(f"\n✓ Augmented dataset ready for retraining: {augmented_path}")
-            print(f"✓ Triggering GPU retraining workflow...")
+        pseudo_df = generate_pseudo_labels(model, tokenizer, device)
+
+        if len(pseudo_df) > 0:
+            augmented_path = create_augmented_dataset(pseudo_df)
+            print(f"\n✓ Augmented dataset ready: {augmented_path}")
+            print("✓ Triggering GPU retraining workflow...")
         else:
             print("\n⚠ Not enough confident predictions for pseudo-labeling.")
             print("  Retraining will proceed on PHEME only.")
-        
+
         sys.exit(1)
 
-    print("System Stable: Model performing well on current US news.")
+    print("System STABLE: model performing well on current tweet stream.")
     sys.exit(0)
 
 
