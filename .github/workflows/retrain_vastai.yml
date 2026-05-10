@@ -17,26 +17,53 @@ jobs:
       - name: Authenticate Vast.ai
         run: vastai set api-key ${{ secrets.VASTAI_API_KEY }}
 
+      - name: Destroy any leftover instances from previous runs
+        run: |
+          INSTANCES=$(vastai show instances --raw 2>/dev/null || echo "[]")
+          echo "$INSTANCES" | python3 -c "
+          import sys, json, subprocess
+          instances = json.load(sys.stdin)
+          if not instances:
+              print('No existing instances to clean up.')
+              sys.exit(0)
+          for inst in instances:
+              iid = inst.get('id')
+              status = inst.get('actual_status', 'unknown')
+              print(f'Destroying leftover instance {iid} (status={status})...')
+              subprocess.run(['vastai', 'destroy', 'instance', str(iid)], check=False)
+          print('Cleanup done.')
+          " || echo "Cleanup step skipped."
+
       - name: Find cheapest offer and launch instance (with retry)
         id: instance
         run: |
           INSTANCE_ID=""
           for attempt in 1 2 3; do
             echo "Attempt $attempt: searching for GPU offer..."
-            OFFER_ID=$(vastai search offers \
-              'reliability > 0.9 num_gpus >= 1 gpu_ram >= 20 disk_space >= 20 cuda_vers >= 11.8 dph_total <= 2.50' \
-              --type on-demand --raw \
-              | python3 -c "
+
+            # Try RTX 3090 first, fall back to RTX 4090
+            OFFER_ID=""
+            for GPU in RTX_3090 RTX_4090; do
+              echo "  Trying $GPU..."
+              OFFER_ID=$(vastai search offers \
+                "reliability > 0.9 num_gpus >= 1 gpu_name = $GPU disk_space >= 20 cuda_vers >= 11.8 dph_total <= 2.50" \
+                --type on-demand --raw \
+                | python3 -c "
           import sys, json
           offers = json.load(sys.stdin)
           if not offers:
-              print('NO_OFFERS', file=sys.stderr)
               sys.exit(1)
           offers.sort(key=lambda x: x['dph_total'])
           print(offers[0]['id'])
-          ")
+          " 2>/dev/null || echo "")
+              if [ -n "$OFFER_ID" ]; then
+                echo "  Found $GPU offer: $OFFER_ID"
+                break
+              fi
+            done
+
             if [ -z "$OFFER_ID" ]; then
-              echo "No GPU offers found. Retrying in 15s..."
+              echo "No RTX 3090 or RTX 4090 offers found. Retrying in 15s..."
               sleep 15
               continue
             fi
