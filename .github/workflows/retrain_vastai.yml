@@ -74,7 +74,7 @@ jobs:
             echo "Trying offer: $OFFER_ID"
 
             RAW=$(vastai create instance "$OFFER_ID" \
-              --image nvidia/cuda:11.8.0-cudnn8-devel-ubuntu22.04 \
+              --image pytorch/pytorch:2.1.0-cuda11.8-cudnn8-runtime \
               --disk 30 \
               --raw \
               --onstart-cmd "bash -c 'curl -fsSL https://raw.githubusercontent.com/zegdane1998/fake-news-mlops/master/train_vastai.sh -o /root/train_vastai.sh && bash /root/train_vastai.sh ${{ secrets.GH_PAT }} > /root/train.log 2>&1'")

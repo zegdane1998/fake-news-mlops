@@ -36,12 +36,8 @@ push_status() {
 }
 
 echo "=== [1/6] System setup ==="
-apt-get update -qq
-apt-get install -y -qq git git-lfs curl python3 python3-venv
+apt-get update -qq && apt-get install -y -qq git git-lfs
 git lfs install
-# Install pip via get-pip.py (more reliable than apt python3-pip on CUDA images)
-curl -fsSL https://bootstrap.pypa.io/get-pip.py | python3
-python3 --version && python3 -m pip --version
 
 echo "=== [2/6] Clone repo ==="
 git config --global http.postBuffer 524288000
@@ -57,10 +53,10 @@ trap 'LAST_ERR=$(tail -10 /root/train.log 2>/dev/null | tr "\n" " " | cut -c1-30
 push_status "Vast.ai: training started $(date -u '+%Y-%m-%d %H:%M')"
 
 echo "=== [3/6] Install Python dependencies ==="
-python3 -m pip install --quiet --upgrade pip
-python3 -m pip install --quiet \
-    "torch==2.1.0" --index-url https://download.pytorch.org/whl/cu118
-python3 -m pip install --quiet \
+# pytorch/pytorch image has Python + PyTorch pre-installed via conda
+source /opt/conda/etc/profile.d/conda.sh 2>/dev/null || true
+conda activate base 2>/dev/null || true
+pip install --quiet \
     "transformers==4.40.0" \
     datasets \
     mlflow \
@@ -70,10 +66,10 @@ python3 -m pip install --quiet \
 
 echo "=== [4/6] Prepare PHEME data ==="
 echo "--- Downloading PHEME from figshare ---"
-python3 src/download_pheme.py
+python src/download_pheme.py
 
 echo "--- Preprocessing tweets ---"
-python3 src/preprocessing.py \
+python src/preprocessing.py \
     --input  data/raw/pheme_tweets.csv \
     --output data/processed/pheme_cleaned.csv \
     --mode   tweet
@@ -87,12 +83,12 @@ echo "  Step B: Pseudo-label accumulated live tweets"
 echo "  Step C: Fine-tune BERTweet on PHEME + pseudo-labels"
 echo "  Step D: Compare both checkpoints on the same test set"
 echo ""
-python3 src/compare_retraining.py
+python src/compare_retraining.py
 
 push_status "Vast.ai: comparison experiment done $(date -u '+%H:%M')"
 
 echo "=== [5b/6] Run drift analysis (mixing experiment) ==="
-python3 src/drift_analysis.py
+python src/drift_analysis.py
 
 echo "=== [6/6] Push results to GitHub ==="
 git fetch origin master
