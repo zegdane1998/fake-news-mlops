@@ -42,11 +42,13 @@ jobs:
             echo "Attempt $attempt: searching for GPU offer..."
 
             # Try RTX 3090 first, fall back to RTX 4090
+            # Minimum $0.40/hr filters out unreliable cheap hosts
+            # Reliability >= 0.95 for stable instances
             OFFER_ID=""
             for GPU in RTX_3090 RTX_4090; do
               echo "  Trying $GPU..."
               OFFER_ID=$(vastai search offers \
-                "reliability > 0.9 num_gpus >= 1 gpu_name = $GPU disk_space >= 20 cuda_vers >= 11.8 dph_total <= 2.50" \
+                "reliability >= 0.95 num_gpus >= 1 gpu_name = $GPU disk_space >= 20 cuda_vers >= 11.8 dph_total >= 0.40 dph_total <= 2.50" \
                 --type on-demand --raw \
                 | python3 -c "
           import sys, json
@@ -54,7 +56,9 @@ jobs:
           if not offers:
               sys.exit(1)
           offers.sort(key=lambda x: x['dph_total'])
-          print(offers[0]['id'])
+          best = offers[0]
+          print(f'  price=\${best[\"dph_total\"]:.3f}/hr  reliability={best[\"reliability2\"]:.2f}', file=sys.stderr)
+          print(best['id'])
           " 2>/dev/null || echo "")
               if [ -n "$OFFER_ID" ]; then
                 echo "  Found $GPU offer: $OFFER_ID"
@@ -70,8 +74,8 @@ jobs:
             echo "Trying offer: $OFFER_ID"
 
             RAW=$(vastai create instance "$OFFER_ID" \
-              --image pytorch/pytorch:2.1.0-cuda11.8-cudnn8-runtime \
-              --disk 20 \
+              --image nvidia/cuda:11.8.0-cudnn8-devel-ubuntu22.04 \
+              --disk 30 \
               --raw \
               --onstart-cmd "bash -c 'curl -fsSL https://raw.githubusercontent.com/zegdane1998/fake-news-mlops/master/train_vastai.sh -o /root/train_vastai.sh && bash /root/train_vastai.sh ${{ secrets.GH_PAT }} > /root/train.log 2>&1'")
 
