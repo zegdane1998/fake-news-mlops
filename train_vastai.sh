@@ -37,12 +37,11 @@ push_status() {
 
 echo "=== [1/6] System setup ==="
 apt-get update -qq
-apt-get install -y -qq git git-lfs python3 python3-pip python3-venv curl
+apt-get install -y -qq git git-lfs curl python3 python3-venv
 git lfs install
-# Make python3/pip3 available as python/pip
-ln -sf /usr/bin/python3 /usr/local/bin/python
-ln -sf /usr/bin/pip3    /usr/local/bin/pip
-python --version && pip --version
+# Install pip via get-pip.py (more reliable than apt python3-pip on CUDA images)
+curl -fsSL https://bootstrap.pypa.io/get-pip.py | python3
+python3 --version && python3 -m pip --version
 
 echo "=== [2/6] Clone repo ==="
 git config --global http.postBuffer 524288000
@@ -58,8 +57,10 @@ trap 'LAST_ERR=$(tail -10 /root/train.log 2>/dev/null | tr "\n" " " | cut -c1-30
 push_status "Vast.ai: training started $(date -u '+%Y-%m-%d %H:%M')"
 
 echo "=== [3/6] Install Python dependencies ==="
-pip install --quiet --upgrade pip
-pip install --quiet \
+python3 -m pip install --quiet --upgrade pip
+python3 -m pip install --quiet \
+    "torch==2.1.0" --index-url https://download.pytorch.org/whl/cu118
+python3 -m pip install --quiet \
     "transformers==4.40.0" \
     datasets \
     mlflow \
@@ -69,10 +70,10 @@ pip install --quiet \
 
 echo "=== [4/6] Prepare PHEME data ==="
 echo "--- Downloading PHEME from figshare ---"
-python src/download_pheme.py
+python3 src/download_pheme.py
 
 echo "--- Preprocessing tweets ---"
-python src/preprocessing.py \
+python3 src/preprocessing.py \
     --input  data/raw/pheme_tweets.csv \
     --output data/processed/pheme_cleaned.csv \
     --mode   tweet
@@ -86,12 +87,12 @@ echo "  Step B: Pseudo-label accumulated live tweets"
 echo "  Step C: Fine-tune BERTweet on PHEME + pseudo-labels"
 echo "  Step D: Compare both checkpoints on the same test set"
 echo ""
-python src/compare_retraining.py
+python3 src/compare_retraining.py
 
 push_status "Vast.ai: comparison experiment done $(date -u '+%H:%M')"
 
 echo "=== [5b/6] Run drift analysis (mixing experiment) ==="
-python src/drift_analysis.py
+python3 src/drift_analysis.py
 
 echo "=== [6/6] Push results to GitHub ==="
 git fetch origin master
