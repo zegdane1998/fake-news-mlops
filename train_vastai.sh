@@ -36,8 +36,13 @@ push_status() {
 }
 
 echo "=== [1/6] System setup ==="
-apt-get update -qq && apt-get install -y -qq git git-lfs
+apt-get update -qq
+apt-get install -y -qq git git-lfs python3 python3-pip python3-venv curl
 git lfs install
+# Make python3/pip3 available as python/pip
+ln -sf /usr/bin/python3 /usr/local/bin/python
+ln -sf /usr/bin/pip3    /usr/local/bin/pip
+python --version && pip --version
 
 echo "=== [2/6] Clone repo ==="
 git config --global http.postBuffer 524288000
@@ -53,8 +58,6 @@ trap 'LAST_ERR=$(tail -10 /root/train.log 2>/dev/null | tr "\n" " " | cut -c1-30
 push_status "Vast.ai: training started $(date -u '+%Y-%m-%d %H:%M')"
 
 echo "=== [3/6] Install Python dependencies ==="
-source /opt/conda/etc/profile.d/conda.sh 2>/dev/null || true
-conda activate base 2>/dev/null || true
 pip install --quiet --upgrade pip
 pip install --quiet \
     "transformers==4.40.0" \
