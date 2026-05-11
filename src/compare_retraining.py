@@ -145,8 +145,8 @@ def fine_tune(run_name, X_train, y_train, X_test, y_test,
 
         train_ds = TweetDataset(X_train, y_train, tokenizer)
         test_ds  = TweetDataset(X_test,  y_test,  tokenizer)
-        train_loader = DataLoader(train_ds, batch_size=BATCH_SIZE, shuffle=True,  num_workers=2)
-        test_loader  = DataLoader(test_ds,  batch_size=BATCH_SIZE, shuffle=False, num_workers=2)
+        train_loader = DataLoader(train_ds, batch_size=BATCH_SIZE, shuffle=True,  num_workers=0)
+        test_loader  = DataLoader(test_ds,  batch_size=BATCH_SIZE, shuffle=False, num_workers=0)
 
         model = AutoModelForSequenceClassification.from_pretrained(
             MODEL_NAME, num_labels=2
@@ -239,127 +239,161 @@ def generate_pseudo_labels(model_dir, confidence_threshold=0.3):
     return df_out[['clean_title', 'label', 'confidence', 'source']]
 
 
-# ── Main ───────────────────────────────────────────────────────────────────────
+# ── Shared test-split helpers (saved to disk so steps A and B use same split) ──
 
-def main():
-    os.makedirs("models", exist_ok=True)
-    os.makedirs("metrics", exist_ok=True)
+SPLIT_PATH = "data/processed/test_split.pkl"
 
-    # ── Shared test split from PHEME ──────────────────────────────────────────
-    df_pheme = pd.read_csv('data/processed/pheme_cleaned.csv').dropna(
+def _load_pheme():
+    df = pd.read_csv('data/processed/pheme_cleaned.csv').dropna(
         subset=['clean_title', 'label']
     )
-    df_pheme['label'] = df_pheme['label'].astype(int)
-    X_all, y_all = df_pheme['clean_title'].astype(str).tolist(), df_pheme['label'].values
+    df['label'] = df['label'].astype(int)
+    X_all = df['clean_title'].astype(str).tolist()
+    y_all = df['label'].values
+    return train_test_split(X_all, y_all, test_size=0.2,
+                            random_state=RANDOM_STATE, stratify=y_all)
 
-    X_train_pheme, X_test, y_train_pheme, y_test = train_test_split(
-        X_all, y_all, test_size=0.2, random_state=RANDOM_STATE, stratify=y_all
-    )
-    print(f"\nShared test set: {len(X_test)} tweets  "
+def _save_split(X_train, X_test, y_train, y_test):
+    import pickle
+    os.makedirs('data/processed', exist_ok=True)
+    with open(SPLIT_PATH, 'wb') as f:
+        pickle.dump((X_train, X_test, y_train, y_test), f)
+
+def _load_split():
+    import pickle
+    with open(SPLIT_PATH, 'rb') as f:
+        return pickle.load(f)
+
+
+# ── Step functions ────────────────────────────────────────────────────────────
+
+def step_a():
+    """Train BERTweet on PHEME only. Saves model + test split for step_b."""
+    os.makedirs("models", exist_ok=True)
+    os.makedirs("metrics", exist_ok=True)
+    X_train, X_test, y_train, y_test = _load_pheme()
+    _save_split(X_train, X_test, y_train, y_test)
+    print(f"Test set: {len(X_test)} tweets  "
           f"({(y_test==0).sum()} fake / {(y_test==1).sum()} real)")
-
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, use_fast=False)
-
-    # ── Run A: PHEME only ─────────────────────────────────────────────────────
     print("\n" + "="*70)
     print("RUN A: Fine-tuning BERTweet on PHEME only")
     print("="*70)
-    metrics_a = fine_tune(
-        run_name  = "bertweet_pheme_only",
-        X_train   = X_train_pheme,
-        y_train   = y_train_pheme,
-        X_test    = X_test,
-        y_test    = y_test,
-        tokenizer = tokenizer,
-        save_dir  = "models/bertweet_pheme_only",
-    )
+    m = fine_tune("bertweet_pheme_only", X_train, y_train,
+                  X_test, y_test, tokenizer, "models/bertweet_pheme_only")
     with open("metrics/bertweet_pheme_only.json", "w") as f:
-        json.dump({**metrics_a, "dataset": "PHEME_only"}, f, indent=2)
-    print(f"\nRun A metrics: {metrics_a}")
+        json.dump({**m, "dataset": "PHEME_only"}, f, indent=2)
+    print(f"\nRun A done: {m}")
 
-    # ── Pseudo-label live tweets using the PHEME-only model ───────────────────
+
+def step_pseudo():
+    """Pseudo-label live tweets using the PHEME-only model."""
     print("\n" + "="*70)
     print("PSEUDO-LABELING accumulated live tweets")
     print("="*70)
+    X_train, X_test, y_train, y_test = _load_split()
     pseudo_df = generate_pseudo_labels("models/bertweet_pheme_only")
-
     if len(pseudo_df) == 0:
-        print("No confident pseudo-labels — skipping Run B.")
-        comparison = {
-            "pheme_only":  metrics_a,
-            "augmented":   None,
-            "delta":       None,
-            "n_pseudo_labels": 0,
-            "note": "Skipped: no confident pseudo-labels available",
-        }
+        print("No confident pseudo-labels — Run B will use PHEME only.")
+        return
+    df_pheme_train = pd.DataFrame({"clean_title": X_train, "label": y_train,
+                                    "source": "ground_truth", "confidence": 1.0})
+    df_aug = pd.concat([
+        df_pheme_train[['clean_title', 'label', 'source', 'confidence']],
+        pseudo_df[['clean_title', 'label', 'source', 'confidence']],
+    ], ignore_index=True)
+    os.makedirs('data/processed', exist_ok=True)
+    df_aug.to_csv('data/processed/pheme_augmented.csv', index=False)
+    print(f"\nAugmented set: {len(df_aug)} examples "
+          f"({len(X_train)} PHEME + {len(pseudo_df)} pseudo-labeled)")
+
+
+def step_b():
+    """Train BERTweet on PHEME + pseudo-labels."""
+    os.makedirs("models", exist_ok=True)
+    os.makedirs("metrics", exist_ok=True)
+    _, X_test, _, y_test = _load_split()
+    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, use_fast=False)
+
+    aug_path = 'data/processed/pheme_augmented.csv'
+    if os.path.exists(aug_path):
+        df_aug = pd.read_csv(aug_path).dropna(subset=['clean_title', 'label'])
+        df_aug['label'] = df_aug['label'].astype(int)
+        X_train = df_aug['clean_title'].tolist()
+        y_train = df_aug['label'].values
+        n_pseudo = int((df_aug['source'] == 'pseudo_label').sum())
     else:
-        # ── Build augmented training set ──────────────────────────────────────
-        df_pheme_train = pd.DataFrame({"clean_title": X_train_pheme, "label": y_train_pheme})
-        df_pheme_train['source']     = 'ground_truth'
-        df_pheme_train['confidence'] = 1.0
+        print("No augmented dataset — falling back to PHEME only for Run B.")
+        X_train, _, y_train, _ = _load_split()
+        n_pseudo = 0
 
-        df_augmented = pd.concat([
-            df_pheme_train[['clean_title', 'label', 'source', 'confidence']],
-            pseudo_df[['clean_title',      'label', 'source', 'confidence']],
-        ], ignore_index=True)
+    print("\n" + "="*70)
+    print("RUN B: Fine-tuning BERTweet on PHEME + pseudo-labeled live tweets")
+    print("="*70)
+    m = fine_tune("bertweet_augmented", X_train, y_train,
+                  X_test, y_test, tokenizer, "models/bertweet_augmented",
+                  n_pseudo=n_pseudo)
+    with open("metrics/bertweet_augmented.json", "w") as f:
+        json.dump({**m, "dataset": "PHEME+PseudoLabels", "n_pseudo": n_pseudo}, f, indent=2)
+    print(f"\nRun B done: {m}")
 
-        os.makedirs('data/processed', exist_ok=True)
-        df_augmented.to_csv('data/processed/pheme_augmented.csv', index=False)
-        print(f"\nAugmented training set: {len(df_augmented)} examples "
-              f"({len(X_train_pheme)} PHEME + {len(pseudo_df)} pseudo-labeled)")
+    # Promote to production model
+    import shutil
+    if os.path.exists("models/bertweet_finetuned"):
+        shutil.rmtree("models/bertweet_finetuned")
+    shutil.copytree("models/bertweet_augmented", "models/bertweet_finetuned")
+    print("Production model updated to bertweet_augmented.")
 
-        # ── Run B: PHEME + pseudo-labels ──────────────────────────────────────
-        print("\n" + "="*70)
-        print("RUN B: Fine-tuning BERTweet on PHEME + pseudo-labeled live tweets")
-        print("="*70)
-        metrics_b = fine_tune(
-            run_name  = "bertweet_augmented",
-            X_train   = df_augmented['clean_title'].tolist(),
-            y_train   = df_augmented['label'].values,
-            X_test    = X_test,
-            y_test    = y_test,
-            tokenizer = tokenizer,
-            save_dir  = "models/bertweet_augmented",
-            n_pseudo  = len(pseudo_df),
-        )
-        with open("metrics/bertweet_augmented.json", "w") as f:
-            json.dump({**metrics_b, "dataset": "PHEME+PseudoLabels",
-                       "n_pseudo": len(pseudo_df)}, f, indent=2)
-        print(f"\nRun B metrics: {metrics_b}")
 
-        # ── Comparison table ──────────────────────────────────────────────────
-        delta = {k: round(metrics_b[k] - metrics_a[k], 4) for k in metrics_a}
-        comparison = {
-            "pheme_only":      metrics_a,
-            "augmented":       metrics_b,
-            "delta":           delta,
-            "n_pseudo_labels": int(len(pseudo_df)),
-            "n_pheme_train":   int(len(X_train_pheme)),
-            "n_augmented_train": int(len(df_augmented)),
-        }
+def step_compare():
+    """Generate side-by-side comparison table from saved metrics."""
+    with open("metrics/bertweet_pheme_only.json") as f:
+        ma = json.load(f)
+    with open("metrics/bertweet_augmented.json") as f:
+        mb = json.load(f)
 
-        # ── Print side-by-side ────────────────────────────────────────────────
-        print("\n" + "="*70)
-        print(f"{'Metric':<15} {'PHEME-only':>12} {'PHEME+Pseudo':>14} {'Delta':>8}")
-        print("-"*70)
-        for k in metrics_a:
-            a, b, d = metrics_a[k], metrics_b[k], delta[k]
-            flag = " ▲" if d > 0 else (" ▼" if d < 0 else "")
-            print(f"{k:<15} {a:>12.4f} {b:>14.4f} {d:>+8.4f}{flag}")
-        print("="*70)
+    keys  = ["accuracy", "f1_macro", "f1_fake", "f1_real", "auc_roc"]
+    ma    = {k: ma[k] for k in keys}
+    mb    = {k: mb[k] for k in keys}
+    delta = {k: round(mb[k] - ma[k], 4) for k in keys}
 
+    _, X_test, _, y_test = _load_split()
+    aug_path = 'data/processed/pheme_augmented.csv'
+    n_pseudo = 0
+    if os.path.exists(aug_path):
+        df_aug = pd.read_csv(aug_path)
+        n_pseudo = int((df_aug['source'] == 'pseudo_label').sum()) if 'source' in df_aug.columns else 0
+
+    comparison = {
+        "pheme_only":        ma,
+        "augmented":         mb,
+        "delta":             delta,
+        "n_pseudo_labels":   n_pseudo,
+        "n_test":            len(X_test),
+    }
     with open("metrics/retraining_comparison.json", "w") as f:
         json.dump(comparison, f, indent=2)
-    print("\nSaved: metrics/retraining_comparison.json")
 
-    # Copy augmented model as the new production model
-    if comparison.get("augmented") is not None:
-        import shutil
-        if os.path.exists("models/bertweet_finetuned"):
-            shutil.rmtree("models/bertweet_finetuned")
-        shutil.copytree("models/bertweet_augmented", "models/bertweet_finetuned")
-        print("Production model updated to bertweet_augmented checkpoint.")
+    print("\n" + "="*70)
+    print(f"{'Metric':<15} {'PHEME-only':>12} {'PHEME+Pseudo':>14} {'Delta':>8}")
+    print("-"*70)
+    for k in keys:
+        flag = " ▲" if delta[k] > 0 else (" ▼" if delta[k] < 0 else "")
+        print(f"{k:<15} {ma[k]:>12.4f} {mb[k]:>14.4f} {delta[k]:>+8.4f}{flag}")
+    print("="*70)
+    print("\nSaved: metrics/retraining_comparison.json")
 
 
 if __name__ == "__main__":
-    main()
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--step",
+                        choices=["a", "pseudo", "b", "compare"],
+                        required=True,
+                        help="Which step to run")
+    args = parser.parse_args()
+
+    if   args.step == "a":       step_a()
+    elif args.step == "pseudo":  step_pseudo()
+    elif args.step == "b":       step_b()
+    elif args.step == "compare": step_compare()

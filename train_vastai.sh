@@ -77,22 +77,29 @@ python src/preprocessing.py \
 push_status "Vast.ai: data ready, starting comparison experiment $(date -u '+%H:%M')"
 
 echo "=== [5/6] Run comparison experiment ==="
-echo ""
-echo "  Step A: Fine-tune BERTweet on PHEME only"
-echo "  Step B: Pseudo-label accumulated live tweets"
-echo "  Step C: Fine-tune BERTweet on PHEME + pseudo-labels"
-echo "  Step D: Compare both checkpoints on the same test set"
-echo ""
-python src/compare_retraining.py
 
+echo "--- Step A: Fine-tune BERTweet on PHEME only (~25 min) ---"
+python src/compare_retraining.py --step a
+push_status "Vast.ai: step-A done — PHEME-only BERTweet trained $(date -u '+%H:%M')"
+
+echo "--- Step pseudo: Pseudo-label accumulated live tweets ---"
+python src/compare_retraining.py --step pseudo
+push_status "Vast.ai: pseudo-labeling done — augmented dataset ready $(date -u '+%H:%M')"
+
+echo "--- Step B: Fine-tune BERTweet on PHEME + pseudo-labels (~25 min) ---"
+python src/compare_retraining.py --step b
+push_status "Vast.ai: step-B done — augmented BERTweet trained $(date -u '+%H:%M')"
+
+echo "--- Step compare: Side-by-side comparison on held-out test set ---"
+python src/compare_retraining.py --step compare
 push_status "Vast.ai: comparison experiment done $(date -u '+%H:%M')"
 
 echo "=== [5b/6] Run drift analysis (mixing experiment) ==="
 python src/drift_analysis.py
 
-echo "=== [6/6] Push results to GitHub ==="
+echo "=== [6/6] Push final results to GitHub ==="
 git fetch origin master
-git reset --mixed origin/master
+git rebase origin/master
 
 # Stage all new metric files and the updated production model
 git add \
