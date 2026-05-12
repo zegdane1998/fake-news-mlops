@@ -1,0 +1,8 @@
+{
+  "total_scraped": 1114,
+  "n_pseudo_labeled": 1071,
+  "n_fake": 2,
+  "n_real": 1069,
+  "n_discarded": 43,
+  "confidence_threshold": 0.3
+}
