@@ -19,7 +19,7 @@ app = FastAPI()
 templates = Jinja2Templates(directory="templates")
 templates.env.globals["zip"] = zip
 
-_tokenizer = AutoTokenizer.from_pretrained("models/bertweet_finetuned", use_fast=False)
+_tokenizer = AutoTokenizer.from_pretrained("models/bertweet_finetuned", use_fast=True)
 _model = AutoModelForSequenceClassification.from_pretrained("models/bertweet_finetuned").to(DEVICE)
 _model.eval()
 

@@ -176,7 +176,7 @@ def train():
         print(f"  Val   - Fake: {(y_val==0).sum()}    Real: {(y_val==1).sum()}\n")
 
         # 2. Tokenizer + datasets
-        tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, use_fast=False)
+        tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, use_fast=True)
         train_ds = TweetDataset(X_train, y_train, tokenizer)
         val_ds   = TweetDataset(X_val,   y_val,   tokenizer)
 

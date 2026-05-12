@@ -55,7 +55,7 @@ def load_bertweet():
     import torch
     from transformers import AutoModelForSequenceClassification, AutoTokenizer
     model_dir = 'models/bertweet_finetuned'
-    tokenizer = AutoTokenizer.from_pretrained(model_dir, use_fast=False)
+    tokenizer = AutoTokenizer.from_pretrained(model_dir, use_fast=True)
     model = AutoModelForSequenceClassification.from_pretrained(model_dir)
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     model = model.to(device).eval()
