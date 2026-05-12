@@ -6,7 +6,7 @@ on:
 jobs:
   retrain:
     runs-on: ubuntu-latest
-    timeout-minutes: 150
+    timeout-minutes: 300
 
     steps:
       - uses: actions/checkout@v3
@@ -48,14 +48,15 @@ jobs:
             for GPU in RTX_3090 RTX_4090; do
               echo "  Trying $GPU..."
               OFFER_ID=$(vastai search offers \
-                "reliability >= 0.95 num_gpus >= 1 gpu_name = $GPU disk_space >= 20 cuda_vers >= 11.8 dph_total >= 0.40 dph_total <= 2.50" \
+                "reliability >= 0.98 num_gpus >= 1 gpu_name = $GPU disk_space >= 20 cuda_vers >= 11.8 dph_total >= 0.50 dph_total <= 2.50" \
                 --type on-demand --raw \
                 | python3 -c "
           import sys, json
           offers = json.load(sys.stdin)
           if not offers:
               sys.exit(1)
-          offers.sort(key=lambda x: x['dph_total'])
+          # Sort by reliability desc, then price asc — prefer stable hosts over cheap ones
+          offers.sort(key=lambda x: (-x.get('reliability2', 0), x['dph_total']))
           best = offers[0]
           print(f'  price=\${best[\"dph_total\"]:.3f}/hr  reliability={best[\"reliability2\"]:.2f}', file=sys.stderr)
           print(best['id'])
@@ -147,8 +148,8 @@ jobs:
           BEFORE_SHA="${{ github.sha }}"
           INSTANCE_ID="${{ steps.instance.outputs.instance_id }}"
           echo "BEFORE_SHA=$BEFORE_SHA"
-          echo "Polling every 2 min for training status commit (up to 120 min)..."
-          for i in $(seq 1 60); do
+          echo "Polling every 2 min for training status commit (up to 240 min)..."
+          for i in $(seq 1 120); do
             sleep 120
             RESPONSE=$(curl -s \
               -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
@@ -168,7 +169,7 @@ jobs:
               exit 0
             fi
           done
-          echo "ERROR: Training did not complete within 120 minutes" && exit 1
+          echo "ERROR: Training did not complete within 240 minutes" && exit 1
 
       - name: Destroy instance
         if: always()
