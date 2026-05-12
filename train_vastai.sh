@@ -95,6 +95,8 @@ push_status "Vast.ai: BERTweet downloaded, starting step A $(date -u '+%H:%M')"
 # Force HuggingFace to use only local cache — no more network calls during training
 export TRANSFORMERS_OFFLINE=1
 export HF_DATASETS_OFFLINE=1
+# Use only GPU 0 — multi-GPU CUDA init can hang on some hosts
+export CUDA_VISIBLE_DEVICES=0
 
 echo "--- Step A: Fine-tune BERTweet on PHEME only (~10 min) ---"
 python src/compare_retraining.py --step a

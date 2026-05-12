@@ -138,16 +138,21 @@ def fine_tune(run_name, X_train, y_train, X_test, y_test,
     os.makedirs(save_dir, exist_ok=True)
     print(f"[{run_name}] train={len(X_train)}  test={len(X_test)}  pseudo={n_pseudo}", flush=True)
 
+    print(f"[{run_name}] Tokenizing train set...", flush=True)
     train_ds = TweetDataset(X_train, y_train, tokenizer)
+    print(f"[{run_name}] Tokenizing test set...", flush=True)
     test_ds  = TweetDataset(X_test,  y_test,  tokenizer)
+    print(f"[{run_name}] Creating DataLoaders...", flush=True)
     train_loader = DataLoader(train_ds, batch_size=BATCH_SIZE, shuffle=True,  num_workers=0)
     test_loader  = DataLoader(test_ds,  batch_size=BATCH_SIZE, shuffle=False, num_workers=0)
 
-    print(f"Loading model from {MODEL_NAME} ...", flush=True)
+    print(f"[{run_name}] Loading model from {MODEL_NAME} ...", flush=True)
     model = AutoModelForSequenceClassification.from_pretrained(
         MODEL_NAME, num_labels=2
-    ).to(DEVICE)
-    print("Model loaded.", flush=True)
+    )
+    print(f"[{run_name}] Moving model to {DEVICE} ...", flush=True)
+    model = model.to(DEVICE)
+    print(f"[{run_name}] Model on GPU, starting training...", flush=True)
 
     optimizer     = torch.optim.AdamW(model.parameters(), lr=LR, weight_decay=WEIGHT_DECAY)
     total_steps   = len(train_loader) * EPOCHS
@@ -266,21 +271,25 @@ def _load_split():
 
 def step_a():
     """Train BERTweet on PHEME only. Saves model + test split for step_b."""
+    print("[step_a] start", flush=True)
     os.makedirs("models", exist_ok=True)
     os.makedirs("metrics", exist_ok=True)
+    print("[step_a] loading PHEME CSV...", flush=True)
     X_train, X_test, y_train, y_test = _load_pheme()
     _save_split(X_train, X_test, y_train, y_test)
-    print(f"Test set: {len(X_test)} tweets  "
-          f"({(y_test==0).sum()} fake / {(y_test==1).sum()} real)")
+    print(f"[step_a] Test set: {len(X_test)} tweets  "
+          f"({(y_test==0).sum()} fake / {(y_test==1).sum()} real)", flush=True)
+    print(f"[step_a] Loading tokenizer from {MODEL_NAME} ...", flush=True)
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, use_fast=False)
+    print("[step_a] Tokenizer loaded.", flush=True)
     print("\n" + "="*70)
     print("RUN A: Fine-tuning BERTweet on PHEME only")
-    print("="*70)
+    print("="*70, flush=True)
     m = fine_tune("bertweet_pheme_only", X_train, y_train,
                   X_test, y_test, tokenizer, "models/bertweet_pheme_only")
     with open("metrics/bertweet_pheme_only.json", "w") as f:
         json.dump({**m, "dataset": "PHEME_only"}, f, indent=2)
-    print(f"\nRun A done: {m}")
+    print(f"\nRun A done: {m}", flush=True)
 
 
 def step_pseudo():
