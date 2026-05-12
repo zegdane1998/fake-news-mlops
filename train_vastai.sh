@@ -78,7 +78,21 @@ push_status "Vast.ai: data ready, starting comparison experiment $(date -u '+%H:
 
 echo "=== [5/6] Run comparison experiment ==="
 
-echo "--- Step A: Fine-tune BERTweet on PHEME only (~25 min) ---"
+echo "--- Pre-downloading BERTweet model from HuggingFace (~500 MB) ---"
+python - <<'PYEOF'
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
+import yaml, os
+with open("params.yaml") as f:
+    model_name = yaml.safe_load(f)["bertweet"]["model_name"]
+print(f"Downloading tokenizer: {model_name}")
+AutoTokenizer.from_pretrained(model_name, use_fast=False)
+print("Downloading model weights...")
+AutoModelForSequenceClassification.from_pretrained(model_name, num_labels=2)
+print("BERTweet download complete — cached locally.")
+PYEOF
+push_status "Vast.ai: BERTweet downloaded, starting step A $(date -u '+%H:%M')"
+
+echo "--- Step A: Fine-tune BERTweet on PHEME only (~10 min) ---"
 python src/compare_retraining.py --step a
 push_status "Vast.ai: step-A done — PHEME-only BERTweet trained $(date -u '+%H:%M')"
 
