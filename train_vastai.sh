@@ -59,10 +59,9 @@ conda activate base 2>/dev/null || true
 pip install --quiet \
     "transformers==4.40.0" \
     datasets \
-    mlflow \
     pandas numpy "scikit-learn>=1.3" \
     pyyaml requests tqdm accelerate \
-    scipy
+    scipy sentencepiece emoji
 
 echo "=== [4/6] Prepare PHEME data ==="
 echo "--- Downloading PHEME from figshare ---"

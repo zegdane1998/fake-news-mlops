@@ -189,7 +189,7 @@ def fine_tune(run_name, X_train, y_train, X_test, y_test,
 def generate_pseudo_labels(model_dir, confidence_threshold=0.3):
     """Use the PHEME-only model to label accumulated live tweets."""
     print(f"\n[Pseudo-Labeling] Loading model from {model_dir}")
-    tokenizer = AutoTokenizer.from_pretrained(model_dir, use_fast=False)
+    tokenizer = AutoTokenizer.from_pretrained(model_dir, use_fast=True)
     model = AutoModelForSequenceClassification.from_pretrained(model_dir).to(DEVICE).eval()
 
     data_dir = 'data/new_scraped/'
@@ -280,7 +280,7 @@ def step_a():
     print(f"[step_a] Test set: {len(X_test)} tweets  "
           f"({(y_test==0).sum()} fake / {(y_test==1).sum()} real)", flush=True)
     print(f"[step_a] Loading tokenizer from {MODEL_NAME} ...", flush=True)
-    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, use_fast=False)
+    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, use_fast=True)
     print("[step_a] Tokenizer loaded.", flush=True)
     print("\n" + "="*70)
     print("RUN A: Fine-tuning BERTweet on PHEME only")
@@ -319,7 +319,7 @@ def step_b():
     os.makedirs("models", exist_ok=True)
     os.makedirs("metrics", exist_ok=True)
     _, X_test, _, y_test = _load_split()
-    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, use_fast=False)
+    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, use_fast=True)
 
     aug_path = 'data/processed/pheme_augmented.csv'
     if os.path.exists(aug_path):
