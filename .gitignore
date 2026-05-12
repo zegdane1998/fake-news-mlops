@@ -9,6 +9,8 @@ mlruns/
 data/raw/
 data/processed/
 models/bertweet_finetuned/
+models/bertweet_pheme_only/
+models/bertweet_augmented/
 
 # FakeNewsNet legacy models (no longer used)
 models/cnn_v1.h5

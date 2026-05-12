@@ -28,7 +28,9 @@ fi
 push_status() {
     local msg="$1"
     git pull origin master --rebase --quiet 2>/dev/null || true
-    git add -A 2>/dev/null || true
+    # Only add small files — never model checkpoints (500MB+ would hang git push)
+    git add metrics/*.json data/processed/*.csv data/processed/*.pkl \
+        2>/dev/null || true
     git diff --cached --quiet && \
         git commit --allow-empty -m "$msg" || \
         git commit -m "$msg"
