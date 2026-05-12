@@ -20,8 +20,8 @@ split used throughout the paper so numbers are directly comparable.
 import json
 import os
 import re
+import sys
 
-import mlflow
 import numpy as np
 import pandas as pd
 import torch
@@ -136,50 +136,47 @@ def fine_tune(run_name, X_train, y_train, X_test, y_test,
               tokenizer, save_dir, n_pseudo=0):
     """Fine-tune BERTweet and return test metrics."""
     os.makedirs(save_dir, exist_ok=True)
-    mlflow.set_experiment("retraining-comparison")
+    print(f"[{run_name}] train={len(X_train)}  test={len(X_test)}  pseudo={n_pseudo}", flush=True)
 
-    with mlflow.start_run(run_name=run_name):
-        mlflow.log_params(P)
-        mlflow.log_param("n_train", len(X_train))
-        mlflow.log_param("n_pseudo", n_pseudo)
+    train_ds = TweetDataset(X_train, y_train, tokenizer)
+    test_ds  = TweetDataset(X_test,  y_test,  tokenizer)
+    train_loader = DataLoader(train_ds, batch_size=BATCH_SIZE, shuffle=True,  num_workers=0)
+    test_loader  = DataLoader(test_ds,  batch_size=BATCH_SIZE, shuffle=False, num_workers=0)
 
-        train_ds = TweetDataset(X_train, y_train, tokenizer)
-        test_ds  = TweetDataset(X_test,  y_test,  tokenizer)
-        train_loader = DataLoader(train_ds, batch_size=BATCH_SIZE, shuffle=True,  num_workers=0)
-        test_loader  = DataLoader(test_ds,  batch_size=BATCH_SIZE, shuffle=False, num_workers=0)
+    print(f"Loading model from {MODEL_NAME} ...", flush=True)
+    model = AutoModelForSequenceClassification.from_pretrained(
+        MODEL_NAME, num_labels=2
+    ).to(DEVICE)
+    print("Model loaded.", flush=True)
 
-        model = AutoModelForSequenceClassification.from_pretrained(
-            MODEL_NAME, num_labels=2
-        ).to(DEVICE)
+    optimizer     = torch.optim.AdamW(model.parameters(), lr=LR, weight_decay=WEIGHT_DECAY)
+    total_steps   = len(train_loader) * EPOCHS
+    warmup_steps  = int(total_steps * WARMUP_RATIO)
+    scheduler     = get_linear_schedule_with_warmup(
+        optimizer, num_warmup_steps=warmup_steps, num_training_steps=total_steps
+    )
 
-        optimizer     = torch.optim.AdamW(model.parameters(), lr=LR, weight_decay=WEIGHT_DECAY)
-        total_steps   = len(train_loader) * EPOCHS
-        warmup_steps  = int(total_steps * WARMUP_RATIO)
-        scheduler     = get_linear_schedule_with_warmup(
-            optimizer, num_warmup_steps=warmup_steps, num_training_steps=total_steps
-        )
-
-        best_f1, best_state = 0.0, None
-        for epoch in range(1, EPOCHS + 1):
-            train_loss = train_epoch(model, train_loader, optimizer, scheduler)
-            preds, probs, labels = eval_model(model, test_loader)
-            f1 = f1_score(labels, preds, average="macro")
-            auc = roc_auc_score(labels, probs)
-            print(f"  Epoch {epoch}/{EPOCHS} — loss={train_loss:.4f}  f1={f1:.4f}  auc={auc:.4f}")
-            mlflow.log_metrics({"train_loss": train_loss, "f1_macro": f1, "auc_roc": auc}, step=epoch)
-            if f1 > best_f1:
-                best_f1 = f1
-                best_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
-
-        model.load_state_dict(best_state)
-        model.save_pretrained(save_dir)
-        tokenizer.save_pretrained(save_dir)
-
+    best_f1, best_state = 0.0, None
+    for epoch in range(1, EPOCHS + 1):
+        print(f"  Epoch {epoch}/{EPOCHS} starting...", flush=True)
+        train_loss = train_epoch(model, train_loader, optimizer, scheduler)
         preds, probs, labels = eval_model(model, test_loader)
-        m = metrics_dict(labels, preds, probs)
-        print(classification_report(labels, preds, target_names=["fake", "real"]))
-        mlflow.log_metrics(m)
-        return m
+        f1 = f1_score(labels, preds, average="macro")
+        auc = roc_auc_score(labels, probs)
+        print(f"  Epoch {epoch}/{EPOCHS} — loss={train_loss:.4f}  f1={f1:.4f}  auc={auc:.4f}", flush=True)
+        if f1 > best_f1:
+            best_f1 = f1
+            best_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
+
+    model.load_state_dict(best_state)
+    model.save_pretrained(save_dir)
+    tokenizer.save_pretrained(save_dir)
+    print(f"Model saved to {save_dir}", flush=True)
+
+    preds, probs, labels = eval_model(model, test_loader)
+    m = metrics_dict(labels, preds, probs)
+    print(classification_report(labels, preds, target_names=["fake", "real"]), flush=True)
+    return m
 
 
 # ── Pseudo-labeling ───────────────────────────────────────────────────────────

@@ -92,6 +92,10 @@ print("BERTweet download complete — cached locally.")
 PYEOF
 push_status "Vast.ai: BERTweet downloaded, starting step A $(date -u '+%H:%M')"
 
+# Force HuggingFace to use only local cache — no more network calls during training
+export TRANSFORMERS_OFFLINE=1
+export HF_DATASETS_OFFLINE=1
+
 echo "--- Step A: Fine-tune BERTweet on PHEME only (~10 min) ---"
 python src/compare_retraining.py --step a
 push_status "Vast.ai: step-A done — PHEME-only BERTweet trained $(date -u '+%H:%M')"
