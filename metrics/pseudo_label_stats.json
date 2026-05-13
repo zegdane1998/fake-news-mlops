@@ -1,8 +1,10 @@
 {
   "total_scraped": 1114,
-  "n_pseudo_labeled": 1105,
-  "n_fake": 3,
-  "n_real": 1102,
-  "n_discarded": 9,
-  "confidence_threshold": 0.3
+  "n_confident": 1096,
+  "n_pseudo_labeled": 7,
+  "n_fake": 7,
+  "n_real_discarded": 1089,
+  "n_uncertain": 18,
+  "confidence_threshold": 0.3,
+  "strategy": "fake_only"
 }
