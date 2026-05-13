@@ -224,18 +224,26 @@ def generate_pseudo_labels(model_dir, confidence_threshold=0.3):
 
     n_fake = (df_out['label'] == 0).sum()
     n_real = (df_out['label'] == 1).sum()
-    print(f"Kept {len(df_out)} confident tweets  ({n_fake} fake / {n_real} real)")
+    print(f"Confident predictions: {len(df_out)} ({n_fake} fake / {n_real} real)")
     print(f"Discarded {(~mask).sum()} uncertain predictions")
+
+    # Keep ONLY fake pseudo-labels — real tweets are already abundant in PHEME
+    # and adding more real samples worsens class imbalance (99% of live tweets
+    # are real, which hurts f1_fake when mixed in naively).
+    df_out = df_out[df_out['label'] == 0].copy()
+    print(f"After fake-only filter: {len(df_out)} pseudo-labeled fake tweets kept")
 
     os.makedirs('metrics', exist_ok=True)
     with open('metrics/pseudo_label_stats.json', 'w') as f:
         json.dump({
-            "total_scraped":       int(len(df_scraped)),
-            "n_pseudo_labeled":    int(len(df_out)),
-            "n_fake":              int(n_fake),
-            "n_real":              int(n_real),
-            "n_discarded":         int((~mask).sum()),
+            "total_scraped":        int(len(df_scraped)),
+            "n_confident":          int(n_fake + n_real),
+            "n_pseudo_labeled":     int(len(df_out)),
+            "n_fake":               int(n_fake),
+            "n_real_discarded":     int(n_real),
+            "n_uncertain":          int((~mask).sum()),
             "confidence_threshold": confidence_threshold,
+            "strategy":             "fake_only",
         }, f, indent=2)
 
     return df_out[['clean_title', 'label', 'confidence', 'source']]
