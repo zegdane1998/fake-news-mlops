@@ -140,8 +140,8 @@ git add \
     data/processed/pheme_augmented.csv \
     2>/dev/null || true
 
-git diff --cached --quiet || git commit -m \
-    "Vast.ai: BERTweet fine-tuned on PHEME $(date -u '+%Y-%m-%d') — comparison + drift analysis"
+git commit --allow-empty -m \
+    "Vast.ai: BERTweet fine-tuned on PHEME $(date -u '+%Y-%m-%d') — comparison complete"
 git push origin master
 trap - ERR
 
