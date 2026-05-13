@@ -52,12 +52,17 @@ def normalise_tweet(text):
 # ── BERTweet inference ────────────────────────────────────────────────────────
 
 def load_bertweet():
-    import torch
+    import torch, yaml
     from transformers import AutoModelForSequenceClassification, AutoTokenizer
     model_dir = 'models/bertweet_finetuned'
-    # emoji package is installed in pip — BertweetTokenizer (use_fast=False) works fine.
-    print(f"Loading tokenizer from {model_dir}", flush=True)
-    tokenizer = AutoTokenizer.from_pretrained(model_dir, use_fast=False)
+    # Load tokenizer from the original HF cache (vinai/bertweet-base), NOT from
+    # model_dir. The saved model_dir may be missing bpe.codes which BertweetTokenizer
+    # requires — loading from HF cache guarantees all files are present.
+    with open('params.yaml') as f:
+        model_name = yaml.safe_load(f)['bertweet']['model_name']
+    print(f"Loading tokenizer from HF cache: {model_name}", flush=True)
+    tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=False)
+    print(f"Tokenizer: {tokenizer.__class__.__name__}", flush=True)
     print(f"Loading model weights from {model_dir}", flush=True)
     model = AutoModelForSequenceClassification.from_pretrained(model_dir)
     device = 'cuda' if torch.cuda.is_available() else 'cpu'

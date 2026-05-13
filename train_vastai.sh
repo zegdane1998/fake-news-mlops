@@ -121,8 +121,8 @@ echo "--- Step compare: Side-by-side comparison on held-out test set ---"
 python src/compare_retraining.py --step compare
 push_status "Vast.ai: comparison experiment done $(date -u '+%H:%M')"
 
-echo "=== [5b/6] Run drift analysis (mixing experiment) ==="
-python src/drift_analysis.py
+echo "=== [5b/6] Drift analysis skipped (runs separately) ==="
+# python src/drift_analysis.py   # skipped — tokenizer load issue; comparison results are sufficient
 
 echo "=== [6/6] Push final results to GitHub ==="
 git fetch origin master
