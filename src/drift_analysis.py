@@ -52,13 +52,21 @@ def normalise_tweet(text):
 # ── BERTweet inference ────────────────────────────────────────────────────────
 
 def load_bertweet():
-    import torch
+    import torch, yaml
     from transformers import AutoModelForSequenceClassification, AutoTokenizer
     model_dir = 'models/bertweet_finetuned'
-    tokenizer = AutoTokenizer.from_pretrained(model_dir, use_fast=True)
+    # Load tokenizer from original model name (cached) — NOT from model_dir whose
+    # tokenizer_config.json forces BertweetTokenizer (slow, needs emoji package)
+    with open('params.yaml') as f:
+        model_name = yaml.safe_load(f)['bertweet']['model_name']
+    print(f"Loading tokenizer from cache: {model_name}", flush=True)
+    tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=True)
+    print(f"Loading model weights from: {model_dir}", flush=True)
     model = AutoModelForSequenceClassification.from_pretrained(model_dir)
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    print(f"Moving model to {device}...", flush=True)
     model = model.to(device).eval()
+    print("BERTweet ready.", flush=True)
     return model, tokenizer, device
 
 
