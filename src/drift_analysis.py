@@ -52,16 +52,15 @@ def normalise_tweet(text):
 # ── BERTweet inference ────────────────────────────────────────────────────────
 
 def load_bertweet():
-    import torch, yaml
-    from transformers import AutoModelForSequenceClassification, AutoTokenizer
+    import torch
+    from transformers import AutoModelForSequenceClassification, RobertaTokenizerFast
     model_dir = 'models/bertweet_finetuned'
-    # Load tokenizer from original model name (cached) — NOT from model_dir whose
-    # tokenizer_config.json forces BertweetTokenizer (slow, needs emoji package)
-    with open('params.yaml') as f:
-        model_name = yaml.safe_load(f)['bertweet']['model_name']
-    print(f"Loading tokenizer from cache: {model_name}", flush=True)
-    tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=True)
-    print(f"Loading model weights from: {model_dir}", flush=True)
+    # BERTweet is RoBERTa-based. Use RobertaTokenizerFast directly — bypasses
+    # tokenizer_config.json "tokenizer_class": "BertweetTokenizer" which forces
+    # the slow Python tokenizer (requires emoji package → hangs without it).
+    print(f"Loading tokenizer (RobertaTokenizerFast) from {model_dir}", flush=True)
+    tokenizer = RobertaTokenizerFast.from_pretrained(model_dir)
+    print(f"Loading model weights from {model_dir}", flush=True)
     model = AutoModelForSequenceClassification.from_pretrained(model_dir)
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     print(f"Moving model to {device}...", flush=True)
