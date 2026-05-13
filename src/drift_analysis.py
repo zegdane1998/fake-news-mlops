@@ -53,13 +53,11 @@ def normalise_tweet(text):
 
 def load_bertweet():
     import torch
-    from transformers import AutoModelForSequenceClassification, RobertaTokenizerFast
+    from transformers import AutoModelForSequenceClassification, AutoTokenizer
     model_dir = 'models/bertweet_finetuned'
-    # BERTweet is RoBERTa-based. Use RobertaTokenizerFast directly — bypasses
-    # tokenizer_config.json "tokenizer_class": "BertweetTokenizer" which forces
-    # the slow Python tokenizer (requires emoji package → hangs without it).
-    print(f"Loading tokenizer (RobertaTokenizerFast) from {model_dir}", flush=True)
-    tokenizer = RobertaTokenizerFast.from_pretrained(model_dir)
+    # emoji package is installed in pip — BertweetTokenizer (use_fast=False) works fine.
+    print(f"Loading tokenizer from {model_dir}", flush=True)
+    tokenizer = AutoTokenizer.from_pretrained(model_dir, use_fast=False)
     print(f"Loading model weights from {model_dir}", flush=True)
     model = AutoModelForSequenceClassification.from_pretrained(model_dir)
     device = 'cuda' if torch.cuda.is_available() else 'cpu'

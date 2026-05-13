@@ -81,12 +81,18 @@ echo "=== [5/6] Run comparison experiment ==="
 
 echo "--- Pre-downloading BERTweet model from HuggingFace (~500 MB) ---"
 python - <<'PYEOF'
-from transformers import AutoTokenizer, AutoModelForSequenceClassification
-import yaml, os
+import yaml
 with open("params.yaml") as f:
     model_name = yaml.safe_load(f)["bertweet"]["model_name"]
+
+# Verify emoji is installed (required by BertweetTokenizer)
+import emoji
+print(f"emoji {emoji.__version__} OK")
+
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
 print(f"Downloading tokenizer: {model_name}")
-AutoTokenizer.from_pretrained(model_name, use_fast=False)
+tok = AutoTokenizer.from_pretrained(model_name, use_fast=False)
+print(f"Tokenizer class: {tok.__class__.__name__}  vocab_size={tok.vocab_size}")
 print("Downloading model weights...")
 AutoModelForSequenceClassification.from_pretrained(model_name, num_labels=2)
 print("BERTweet download complete — cached locally.")
