@@ -152,18 +152,27 @@ jobs:
             | python3 -c "import sys,json; print(json.load(sys.stdin)['sha'])")
           INSTANCE_ID="${{ steps.instance.outputs.instance_id }}"
           echo "BEFORE_SHA=$BEFORE_SHA  (snapshot at instance launch)"
-          echo "Polling every 2 min for training completion (up to 240 min)..."
-          for i in $(seq 1 120); do
+          echo "Polling every 2 min for training completion (up to 90 min)..."
+          LAST_SHA="$BEFORE_SHA"
+          STALL_COUNT=0
+          for i in $(seq 1 45); do
             sleep 120
             RESPONSE=$(curl -s \
               -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
               "https://api.github.com/repos/zegdane1998/fake-news-mlops/commits/master")
             LATEST_SHA=$(echo "$RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin)['sha'])")
             LATEST_MSG=$(echo "$RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin)['commit']['message'][:120])")
-            echo "[$i/120] $LATEST_MSG"
+            echo "[$i/45] $LATEST_MSG"
             if [ "$LATEST_SHA" = "$BEFORE_SHA" ]; then
+              STALL_COUNT=$((STALL_COUNT + 1))
+              echo "  (no new commit yet — stall=$STALL_COUNT)"
+              if [ "$STALL_COUNT" -ge 15 ]; then
+                echo "ERROR: Instance made no commits in 30 min — likely stuck in setup. Aborting."
+                exit 1
+              fi
               continue
             fi
+            STALL_COUNT=0
             if echo "$LATEST_MSG" | grep -qi "FAILED"; then
               echo "ERROR: Training script reported failure: $LATEST_MSG"
               exit 1
@@ -173,7 +182,7 @@ jobs:
               exit 0
             fi
           done
-          echo "ERROR: Training did not complete within 240 minutes" && exit 1
+          echo "ERROR: Training did not complete within 90 minutes" && exit 1
 
       - name: Destroy instance
         if: always()
