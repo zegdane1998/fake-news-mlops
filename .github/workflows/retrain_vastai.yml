@@ -178,13 +178,22 @@ jobs:
               echo "ERROR: Instance exited but no success commit found. Check train.log on the instance."
               exit 1
             fi
-            if [ "$STATUS" = "running" ] && [ $((POLL % 10)) -eq 0 ]; then
-              # Every 5 min print latest commit so we can track progress
-              MSG=$(curl -s \
-                -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-                "https://api.github.com/repos/zegdane1998/fake-news-mlops/commits/master" \
-                | python3 -c "import sys,json; print(json.load(sys.stdin)['commit']['message'][:120])" 2>/dev/null || echo "?")
-              echo "  latest commit: $MSG"
+            # Every poll: check if success commit already landed (instance may stay
+            # "running" for a while after the script finishes)
+            LATEST_MSG=$(curl -s \
+              -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+              "https://api.github.com/repos/zegdane1998/fake-news-mlops/commits/master" \
+              | python3 -c "import sys,json; print(json.load(sys.stdin)['commit']['message'][:200])" 2>/dev/null || echo "?")
+            if [ $((POLL % 10)) -eq 0 ]; then
+              echo "  latest commit: $LATEST_MSG"
+            fi
+            if echo "$LATEST_MSG" | grep -qi "fine-tuned on PHEME"; then
+              echo "Success commit detected while instance still running — training complete!"
+              exit 0
+            fi
+            if echo "$LATEST_MSG" | grep -qi "FAILED"; then
+              echo "ERROR: Training script reported failure: $LATEST_MSG"
+              exit 1
             fi
           done
 
