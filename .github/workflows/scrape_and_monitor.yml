@@ -4,6 +4,15 @@ on:
   schedule:
     - cron: '0 6 * * *'   # daily at 06:00 UTC
   workflow_dispatch:
+    inputs:
+      inject_drift:
+        description: 'Inject OOD tweets to simulate drift (validation only)'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
 
 permissions:
   contents: write
@@ -45,7 +54,8 @@ jobs:
           git commit -m "Automated scrape: $(date -u '+%Y-%m-%d')" || echo "No new tweets"
           git push
 
-      - name: Inject OOD tweets (drift demo)
+      - name: Inject OOD tweets (drift validation only)
+        if: github.event.inputs.inject_drift == 'true'
         run: python src/inject_drift.py --inject-only
 
       - name: Monitor for Drift
