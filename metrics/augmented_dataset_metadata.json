@@ -1,0 +1,8 @@
+{
+  "created_at": "2026-05-19T23:32:34Z",
+  "n_ground_truth": 5728,
+  "n_pseudo_labeled": 92,
+  "n_total": 5820,
+  "pseudo_label_ratio": 0.0158,
+  "confidence_threshold": 0.3
+}
