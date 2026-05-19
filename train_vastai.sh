@@ -62,6 +62,7 @@ source /opt/conda/etc/profile.d/conda.sh 2>/dev/null || true
 conda activate base 2>/dev/null || true
 pip install --quiet \
     "transformers==4.40.0" \
+    "huggingface_hub>=0.23.0" \
     datasets \
     pandas numpy "scikit-learn>=1.3" \
     pyyaml requests tqdm accelerate \
@@ -113,18 +114,25 @@ push_status "Vast.ai: step-A done — PHEME-only BERTweet trained $(date -u '+%H
 
 echo "--- Push fine-tuned model to Hugging Face Hub ---"
 if [ -n "$HF_TOKEN" ]; then
-    python - <<PYEOF
-import yaml
+    export HF_TOKEN="$HF_TOKEN"
+    set +e   # don't fail the whole pipeline if HF push fails
+    python - <<'PYEOF'
+import os, yaml
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
-with open("params.yaml") as f:
-    model_name = yaml.safe_load(f)["bertweet"]["model_name"]
-print("Pushing model to HF Hub: abdellahzegdane/fakeshield-bertweet")
-model = AutoModelForSequenceClassification.from_pretrained("models/bertweet_pheme_only")
-tok   = AutoTokenizer.from_pretrained(model_name, use_fast=False)
-model.push_to_hub("abdellahzegdane/fakeshield-bertweet", token="$HF_TOKEN")
-tok.push_to_hub(  "abdellahzegdane/fakeshield-bertweet", token="$HF_TOKEN")
-print("Model pushed to HF Hub successfully.")
+hf_token = os.environ.get("HF_TOKEN", "")
+if not hf_token:
+    print("HF_TOKEN empty — skipping push")
+else:
+    with open("params.yaml") as f:
+        model_name = yaml.safe_load(f)["bertweet"]["model_name"]
+    print("Pushing model to HF Hub: abdellahzegdane/fakeshield-bertweet")
+    model = AutoModelForSequenceClassification.from_pretrained("models/bertweet_pheme_only")
+    tok   = AutoTokenizer.from_pretrained(model_name, use_fast=False)
+    model.push_to_hub("abdellahzegdane/fakeshield-bertweet", token=hf_token)
+    tok.push_to_hub(  "abdellahzegdane/fakeshield-bertweet", token=hf_token)
+    print("Model pushed to HF Hub successfully.")
 PYEOF
+    set -e
 else
     echo "HF_TOKEN not set — skipping HF Hub push"
 fi
