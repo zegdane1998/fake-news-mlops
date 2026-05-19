@@ -20,7 +20,7 @@ jobs:
         run: |
           pip install --quiet torch --index-url https://download.pytorch.org/whl/cpu
           pip install --quiet transformers sentencepiece emoji \
-            pandas numpy scipy scikit-learn pyyaml
+            pandas numpy scipy scikit-learn pyyaml requests tqdm
 
       - name: Download and preprocess PHEME
         run: |
