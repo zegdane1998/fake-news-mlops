@@ -78,7 +78,7 @@ jobs:
               --image pytorch/pytorch:2.1.0-cuda11.8-cudnn8-runtime \
               --disk 30 \
               --raw \
-              --onstart-cmd "bash -c 'curl -fsSL https://raw.githubusercontent.com/zegdane1998/fake-news-mlops/master/train_vastai.sh -o /root/train_vastai.sh && bash /root/train_vastai.sh ${{ secrets.GH_PAT }} > /root/train.log 2>&1'")
+              --onstart-cmd "bash -c 'curl -fsSL https://raw.githubusercontent.com/zegdane1998/fake-news-mlops/master/train_vastai.sh -o /root/train_vastai.sh && bash /root/train_vastai.sh ${{ secrets.GH_PAT }} ${{ secrets.HF_TOKEN }} > /root/train.log 2>&1'")
 
             echo "Raw response: $RAW"
 

@@ -45,6 +45,9 @@ jobs:
           git commit -m "Automated scrape: $(date -u '+%Y-%m-%d')" || echo "No new tweets"
           git push
 
+      - name: Inject OOD tweets (drift demo)
+        run: python src/inject_drift.py --inject-only
+
       - name: Monitor for Drift
         id: monitor
         run: |
