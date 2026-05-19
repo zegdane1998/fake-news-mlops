@@ -109,6 +109,15 @@ echo "--- Step A: Fine-tune BERTweet on PHEME only (~10 min) ---"
 python src/compare_retraining.py --step a
 push_status "Vast.ai: step-A done — PHEME-only BERTweet trained $(date -u '+%H:%M')"
 
+echo "--- Step drift-demo: Inject OOD tweets and run monitor ---"
+# Copy trained model to the expected production path so monitor can load it
+cp -r models/bertweet_pheme_only models/bertweet_finetuned 2>/dev/null || true
+# Clear any existing scraped data and inject OOD tweets only
+rm -f data/new_scraped/*.csv
+python src/inject_drift.py --inject-only
+python src/monitor.py
+push_status "Vast.ai: drift demo done — PSI/KS results saved $(date -u '+%H:%M')"
+
 echo "--- Step pseudo: Pseudo-label accumulated live tweets ---"
 python src/compare_retraining.py --step pseudo
 push_status "Vast.ai: pseudo-labeling done — augmented dataset ready $(date -u '+%H:%M')"
@@ -121,8 +130,9 @@ echo "--- Step compare: Side-by-side comparison on held-out test set ---"
 python src/compare_retraining.py --step compare
 push_status "Vast.ai: comparison experiment done $(date -u '+%H:%M')"
 
-echo "=== [5b/6] Drift analysis skipped (runs separately) ==="
-# python src/drift_analysis.py   # skipped — tokenizer load issue; comparison results are sufficient
+echo "=== [5b/6] Pseudo-label accumulation curve ==="
+python src/pseudo_label_curve.py
+push_status "Vast.ai: pseudo-label curve done $(date -u '+%H:%M')"
 
 echo "=== [6/6] Push final results to GitHub ==="
 git fetch origin master
@@ -132,6 +142,7 @@ git rebase origin/master
 git add \
     metrics/bertweet_pheme_only.json \
     metrics/bertweet_augmented.json \
+    metrics/pseudo_label_curve.json \
     metrics/retraining_comparison.json \
     metrics/pseudo_label_stats.json \
     metrics/augmented_dataset_metadata.json \
