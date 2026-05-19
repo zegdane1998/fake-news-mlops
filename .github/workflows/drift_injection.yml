@@ -1,0 +1,54 @@
+name: Drift Injection Demo
+
+on:
+  workflow_dispatch:
+
+jobs:
+  inject-and-detect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: |
+          pip install --quiet \
+            torch --index-url https://download.pytorch.org/whl/cpu \
+            transformers sentencepiece emoji \
+            pandas numpy scipy scikit-learn pyyaml
+
+      - name: Download PHEME data
+        run: python src/download_pheme.py
+
+      - name: Preprocess PHEME
+        run: |
+          python src/preprocessing.py \
+            --input  data/raw/pheme_tweets.csv \
+            --output data/processed/pheme_cleaned.csv \
+            --mode   tweet
+
+      - name: Inject OOD tweets
+        run: python src/inject_drift.py --inject-only
+
+      - name: Run drift detector
+        run: python src/monitor.py
+
+      - name: Show drift report
+        run: |
+          echo "=== Drift Report ==="
+          cat metrics/drift_report.json
+
+      - name: Commit and push results
+        run: |
+          git config user.email "24COMP5001@isik.edu.tr"
+          git config user.name "FakeShield Bot"
+          git remote set-url origin https://${{ secrets.GH_PAT }}@github.com/zegdane1998/fake-news-mlops.git
+          git add metrics/drift_report.json data/new_scraped/drift_injection.csv
+          git diff --cached --quiet || git commit -m "Drift injection demo: OOD tweets trigger PSI/KS detectors"
+          git push origin master

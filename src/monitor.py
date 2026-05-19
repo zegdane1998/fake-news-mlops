@@ -35,11 +35,22 @@ US_POLITICAL_KEYWORDS = [
 # ── BERTweet model loading & inference ───────────────────────────────────────
 
 def load_bertweet():
-    import torch
+    import torch, yaml
     from transformers import AutoModelForSequenceClassification, AutoTokenizer
+    with open('params.yaml') as f:
+        model_name = yaml.safe_load(f)['bertweet']['model_name']
     model_dir = 'models/bertweet_finetuned'
-    tokenizer = AutoTokenizer.from_pretrained(model_dir, use_fast=True)
-    model = AutoModelForSequenceClassification.from_pretrained(model_dir)
+    # Load tokenizer from HF cache (guaranteed to have bpe.codes)
+    tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=False)
+    # Load weights from fine-tuned dir if available, else fall back to base model
+    if os.path.exists(model_dir):
+        print(f"Loading fine-tuned model from {model_dir}")
+        model = AutoModelForSequenceClassification.from_pretrained(model_dir)
+    else:
+        print(f"Fine-tuned model not found — using base model {model_name}")
+        model = AutoModelForSequenceClassification.from_pretrained(
+            model_name, num_labels=2
+        )
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     model = model.to(device).eval()
     return model, tokenizer, device
