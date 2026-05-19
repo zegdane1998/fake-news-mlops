@@ -22,21 +22,16 @@ jobs:
           pip install --quiet transformers sentencepiece emoji \
             pandas numpy scipy scikit-learn pyyaml
 
-      - name: Download PHEME data
-        run: python src/download_pheme.py
-
-      - name: Preprocess PHEME
+      - name: Download and preprocess PHEME
         run: |
+          python src/download_pheme.py
           python src/preprocessing.py \
             --input  data/raw/pheme_tweets.csv \
             --output data/processed/pheme_cleaned.csv \
             --mode   tweet
 
-      - name: Inject OOD tweets
-        run: python src/inject_drift.py --inject-only
-
-      - name: Run drift detector
-        run: python src/monitor.py
+      - name: Inject OOD tweets and run drift detector
+        run: python src/inject_drift.py
 
       - name: Show drift report
         run: |
