@@ -137,20 +137,6 @@ else
     echo "HF_TOKEN not set — skipping HF Hub push"
 fi
 
-echo "--- Step drift-demo: Inject OOD tweets and run monitor ---"
-set +e   # drift demo is non-fatal — don't kill pipeline if it fails
-cp -r models/bertweet_pheme_only models/bertweet_finetuned 2>/dev/null || true
-rm -f data/new_scraped/*.csv
-python src/inject_drift.py --inject-only
-python src/monitor.py
-DRIFT_EXIT=$?
-if [ $DRIFT_EXIT -eq 0 ]; then
-    push_status "Vast.ai: drift demo done — PSI/KS results saved $(date -u '+%H:%M')"
-else
-    echo "WARNING: drift demo failed (exit $DRIFT_EXIT) — continuing pipeline"
-fi
-set -e
-
 echo "--- Step pseudo: Pseudo-label accumulated live tweets ---"
 python src/compare_retraining.py --step pseudo
 push_status "Vast.ai: pseudo-labeling done — augmented dataset ready $(date -u '+%H:%M')"
