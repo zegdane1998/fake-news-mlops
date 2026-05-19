@@ -13,12 +13,14 @@
 #   5. Push all results to GitHub
 #
 # Usage:
-#   bash train_vastai.sh <GITHUB_TOKEN>
+#   bash train_vastai.sh <GITHUB_TOKEN> <HF_TOKEN>
 
 set -e
 
 GITHUB_TOKEN="$1"
+HF_TOKEN="$2"
 REPO="zegdane1998/fake-news-mlops"
+HF_REPO="abdellahzegdane/fakeshield-bertweet"
 
 if [ -z "$GITHUB_TOKEN" ]; then
     echo "ERROR: provide your GitHub token"
@@ -108,6 +110,24 @@ export CUDA_VISIBLE_DEVICES=0
 echo "--- Step A: Fine-tune BERTweet on PHEME only (~10 min) ---"
 python src/compare_retraining.py --step a
 push_status "Vast.ai: step-A done — PHEME-only BERTweet trained $(date -u '+%H:%M')"
+
+echo "--- Push fine-tuned model to Hugging Face Hub ---"
+if [ -n "$HF_TOKEN" ]; then
+    python - <<PYEOF
+import yaml
+from transformers import AutoModelForSequenceClassification, AutoTokenizer
+with open("params.yaml") as f:
+    model_name = yaml.safe_load(f)["bertweet"]["model_name"]
+print("Pushing model to HF Hub: abdellahzegdane/fakeshield-bertweet")
+model = AutoModelForSequenceClassification.from_pretrained("models/bertweet_pheme_only")
+tok   = AutoTokenizer.from_pretrained(model_name, use_fast=False)
+model.push_to_hub("abdellahzegdane/fakeshield-bertweet", token="$HF_TOKEN")
+tok.push_to_hub(  "abdellahzegdane/fakeshield-bertweet", token="$HF_TOKEN")
+print("Model pushed to HF Hub successfully.")
+PYEOF
+else
+    echo "HF_TOKEN not set — skipping HF Hub push"
+fi
 
 echo "--- Step drift-demo: Inject OOD tweets and run monitor ---"
 # Copy trained model to the expected production path so monitor can load it
