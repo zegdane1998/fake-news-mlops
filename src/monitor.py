@@ -288,11 +288,7 @@ def run_monitoring():
               "not a drift trigger.")
 
     # 3. BERTweet inference
-    model_dir = 'models/bertweet_finetuned'
-    if not os.path.exists(model_dir):
-        print("BERTweet model not found — skipping monitoring.")
-        sys.exit(0)
-
+    # load_bertweet() handles local → HF Hub → base model fallback automatically
     model, tokenizer, device = load_bertweet()
     print(f"BERTweet loaded on {device}")
 
