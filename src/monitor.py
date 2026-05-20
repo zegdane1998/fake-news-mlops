@@ -314,6 +314,21 @@ def run_monitoring():
 
     processed_path = 'data/processed/pheme_cleaned.csv'
     if not os.path.exists(ref_path):
+        if not os.path.exists(processed_path):
+            # Download and preprocess PHEME on-the-fly (first run on a fresh runner)
+            print("pheme_cleaned.csv not found — downloading PHEME to build reference distribution...")
+            import subprocess
+            try:
+                subprocess.run([sys.executable, 'src/download_pheme.py'], check=True)
+                subprocess.run([
+                    sys.executable, 'src/preprocessing.py',
+                    '--input',  'data/raw/pheme_tweets.csv',
+                    '--output', 'data/processed/pheme_cleaned.csv',
+                    '--mode',   'tweet',
+                ], check=True)
+                print("PHEME downloaded and preprocessed.")
+            except Exception as e:
+                print(f"PHEME download failed ({e}) — skipping KS/PSI tests.")
         if os.path.exists(processed_path):
             print("Building reference distribution (first run)...")
             ref_scores = build_reference_distribution(model, tokenizer, device)

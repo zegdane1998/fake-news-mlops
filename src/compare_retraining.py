@@ -299,6 +299,27 @@ def step_a():
         json.dump({**m, "dataset": "PHEME_only"}, f, indent=2)
     print(f"\nRun A done: {m}", flush=True)
 
+    # Build reference score distribution so monitor.py can run KS/PSI drift tests
+    print("[step_a] Building reference distribution for drift monitoring...", flush=True)
+    ref_model = AutoModelForSequenceClassification.from_pretrained("models/bertweet_pheme_only")
+    ref_model = ref_model.to(DEVICE).eval()
+    ref_tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, use_fast=False)
+    ref_texts = X_train[:2000] if len(X_train) > 2000 else X_train
+    ref_ds = TweetDataset(ref_texts, [0] * len(ref_texts), ref_tokenizer)
+    ref_loader = DataLoader(ref_ds, batch_size=BATCH_SIZE, shuffle=False, num_workers=0)
+    ref_probs = []
+    with torch.no_grad():
+        for batch in ref_loader:
+            out = ref_model(
+                input_ids=batch["input_ids"].to(DEVICE),
+                attention_mask=batch["attention_mask"].to(DEVICE),
+            )
+            probs = torch.softmax(out.logits, dim=-1)[:, 1].cpu().numpy()
+            ref_probs.extend(probs.tolist())
+    ref_scores = np.array(ref_probs)
+    np.save("models/reference_score_distribution.npy", ref_scores)
+    print(f"[step_a] Reference distribution saved ({len(ref_scores)} samples).", flush=True)
+
 
 def step_pseudo():
     """Pseudo-label live tweets using the PHEME-only model."""

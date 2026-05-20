@@ -147,6 +147,7 @@ git add \
     metrics/augmented_dataset_metadata.json \
     metrics/pheme_baselines.json \
     data/processed/pheme_augmented.csv \
+    models/reference_score_distribution.npy \
     2>/dev/null || true
 
 git commit --allow-empty -m \
