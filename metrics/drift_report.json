@@ -1,12 +1,23 @@
 {
-  "timestamp": "2026-05-20T07:51:00Z",
+  "timestamp": "2026-05-20T08:19:20Z",
   "source_file": "data/new_scraped/drift_injection.csv",
   "n_articles": 130,
   "relevancy_rate": 0.0077,
   "avg_confidence": 0.3149,
   "pred_std": 0.2541,
   "low_conf_streak_days": 0,
-  "ks_test": null,
-  "psi": null,
-  "retrain_needed": false
+  "ks_test": {
+    "ks_statistic": 0.7552,
+    "p_value": 0.0,
+    "drift_detected": true
+  },
+  "psi": {
+    "value": 6.0614,
+    "status": "SIGNIFICANT",
+    "thresholds": {
+      "stable": 0.1,
+      "moderate": 0.25
+    }
+  },
+  "retrain_needed": true
 }
