@@ -1,9 +1,9 @@
 {
   "accuracy": 0.9599,
-  "f1_macro": 0.8937,
-  "f1_fake": 0.8099,
+  "f1_macro": 0.893,
+  "f1_fake": 0.8083,
   "f1_real": 0.9776,
-  "auc_roc": 0.9673,
+  "auc_roc": 0.9625,
   "dataset": "PHEME+PseudoLabels",
-  "n_pseudo": 6
+  "n_pseudo": 10
 }
