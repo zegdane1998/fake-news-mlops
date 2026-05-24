@@ -1,8 +1,8 @@
 {
-  "accuracy": 0.966,
-  "f1_macro": 0.9075,
-  "f1_fake": 0.834,
-  "f1_real": 0.981,
-  "auc_roc": 0.9626,
+  "accuracy": 0.9634,
+  "f1_macro": 0.903,
+  "f1_fake": 0.8264,
+  "f1_real": 0.9795,
+  "auc_roc": 0.9594,
   "dataset": "PHEME_only"
 }
