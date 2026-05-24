@@ -1,18 +1,18 @@
 {
-  "timestamp": "2026-05-23T08:25:14Z",
+  "timestamp": "2026-05-24T08:34:36Z",
   "source_file": "data/new_scraped/all_tweets.csv",
-  "n_articles": 803,
-  "relevancy_rate": 0.9975,
-  "avg_confidence": 0.4903,
-  "pred_std": 0.0646,
+  "n_articles": 828,
+  "relevancy_rate": 0.9976,
+  "avg_confidence": 0.4893,
+  "pred_std": 0.0645,
   "low_conf_streak_days": 0,
   "ks_test": {
-    "ks_statistic": 0.7689,
+    "ks_statistic": 0.7625,
     "p_value": 0.0,
     "drift_detected": true
   },
   "psi": {
-    "value": 3.1208,
+    "value": 3.1265,
     "status": "SIGNIFICANT",
     "thresholds": {
       "stable": 0.1,
