@@ -28,6 +28,10 @@ paper/
 # Leftover artifacts
 models_and_data.tar.gz
 pip-uninstall-*/
+mlflow.db
+setup_vastai.sh
+upload_models.sh
+truba_*.sh
 
 # Claude internal
 .claude/
