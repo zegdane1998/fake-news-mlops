@@ -85,18 +85,33 @@ def predict_bertweet(model, tokenizer, device, texts, batch_size=64, max_len=128
 # ── Reference distribution ────────────────────────────────────────────────────
 
 def build_reference_distribution(model, tokenizer, device):
-    """Compute BERTweet predictions on the PHEME training split and cache them."""
+    """Compute BERTweet predictions on REAL-class PHEME training examples only.
+
+    Why real-only? Live X is ~99.5% real news. If we build the reference from
+    the full PHEME training split (8:1 real/fake), the reference distribution
+    has a bimodal shape (some probs near 0 for fake, many near 1 for real).
+    The live stream distribution is unimodal (almost all near 1). This shape
+    mismatch produces permanently high PSI even with no concept drift,
+    triggering spurious retraining every day.
+
+    Using only real-class examples makes the reference match the expected
+    shape of a healthy live stream, so PSI only rises when the model's
+    behaviour on real political tweets genuinely changes.
+    """
     df = pd.read_csv('data/processed/pheme_cleaned.csv').dropna(
         subset=['clean_title', 'label']
     )
     df['label'] = df['label'].astype(int)
-    X, y = df['clean_title'].astype(str), df['label']
+    # Use only real-class (label=1) training examples to match live X distribution
+    df_real = df[df['label'] == 1]
     X_train, _, _, _ = train_test_split(
-        X, y, test_size=0.2, random_state=42, stratify=y
+        df_real['clean_title'].astype(str), df_real['label'],
+        test_size=0.2, random_state=42
     )
-    ref_scores = predict_bertweet(model, tokenizer, device, X_train.tolist())
+    ref_texts = X_train.tolist()[:2000]
+    ref_scores = predict_bertweet(model, tokenizer, device, ref_texts)
     np.save('models/reference_score_distribution.npy', ref_scores)
-    print(f"Reference distribution built: {len(ref_scores)} samples.")
+    print(f"Reference distribution built from {len(ref_scores)} real-class PHEME examples.")
     return ref_scores
 
 
@@ -275,6 +290,13 @@ def run_monitoring():
         key=os.path.getmtime
     )
     df = pd.read_csv(latest_file)
+    # Strip any OOD injection rows (source == "drift_injection") so they
+    # never pollute a real monitoring run after the test is done.
+    if 'source' in df.columns:
+        n_before = len(df)
+        df = df[df['source'] != 'drift_injection'].reset_index(drop=True)
+        if len(df) < n_before:
+            print(f"Filtered {n_before - len(df)} OOD injection rows from stream.")
     print(f"Monitoring on: {latest_file} ({len(df)} tweets)")
 
     # 2. Relevancy check — diagnostic only, does NOT trigger retraining
@@ -404,6 +426,20 @@ def run_monitoring():
         else:
             print("\n⚠ Not enough confident predictions for pseudo-labeling.")
             print("  Retraining will proceed on PHEME only.")
+
+        # Archive the current scraped file so next monitoring cycle starts
+        # with a clean stream — prevents the same OOD tweets from
+        # re-triggering drift on every subsequent run.
+        archive_dir = 'data/new_scraped/archive'
+        os.makedirs(archive_dir, exist_ok=True)
+        archive_name = os.path.join(
+            archive_dir,
+            f"archived_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}_"
+            + os.path.basename(latest_file)
+        )
+        os.rename(latest_file, archive_name)
+        print(f"\n✓ Scraped data archived to {archive_name}")
+        print("  Next monitoring cycle will start with a clean stream.")
 
         sys.exit(1)
 

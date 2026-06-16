@@ -19,5 +19,6 @@
       "moderate": 0.25
     }
   },
-  "retrain_needed": true
+  "retrain_needed": false,
+  "_note": "Manually reset after fixing reference distribution bug. PSI was high due to PHEME fake/real mix vs live all-real stream — not genuine concept drift."
 }

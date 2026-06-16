@@ -299,13 +299,18 @@ def step_a():
         json.dump({**m, "dataset": "PHEME_only"}, f, indent=2)
     print(f"\nRun A done: {m}", flush=True)
 
-    # Build reference score distribution so monitor.py can run KS/PSI drift tests
-    print("[step_a] Building reference distribution for drift monitoring...", flush=True)
+    # Build reference score distribution using REAL-class examples only.
+    # Live X is ~99.5% real news so using real-only PHEME examples prevents
+    # permanent PSI inflation from the fake/real class-composition mismatch.
+    print("[step_a] Building reference distribution (real-class only)...", flush=True)
+    df_pheme = pd.read_csv("data/processed/pheme_cleaned.csv").dropna(subset=["clean_title", "label"])
+    df_pheme["label"] = df_pheme["label"].astype(int)
+    real_texts = df_pheme[df_pheme["label"] == 1]["clean_title"].astype(str).tolist()
+    real_texts = real_texts[:2000] if len(real_texts) > 2000 else real_texts
     ref_model = AutoModelForSequenceClassification.from_pretrained("models/bertweet_pheme_only")
     ref_model = ref_model.to(DEVICE).eval()
     ref_tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, use_fast=False)
-    ref_texts = X_train[:2000] if len(X_train) > 2000 else X_train
-    ref_ds = TweetDataset(ref_texts, [0] * len(ref_texts), ref_tokenizer)
+    ref_ds = TweetDataset(real_texts, [0] * len(real_texts), ref_tokenizer)
     ref_loader = DataLoader(ref_ds, batch_size=BATCH_SIZE, shuffle=False, num_workers=0)
     ref_probs = []
     with torch.no_grad():
@@ -318,7 +323,7 @@ def step_a():
             ref_probs.extend(probs.tolist())
     ref_scores = np.array(ref_probs)
     np.save("models/reference_score_distribution.npy", ref_scores)
-    print(f"[step_a] Reference distribution saved ({len(ref_scores)} samples).", flush=True)
+    print(f"[step_a] Reference distribution saved ({len(ref_scores)} real-class samples).", flush=True)
 
 
 def step_pseudo():
@@ -378,6 +383,27 @@ def step_b():
         shutil.rmtree("models/bertweet_finetuned")
     shutil.copytree("models/bertweet_augmented", "models/bertweet_finetuned")
     print("Production model updated to bertweet_augmented.")
+
+    # Rebuild reference distribution from the NEW production model.
+    # Critical: without this, the augmented model's shifted output distribution
+    # triggers false drift alarms on every subsequent monitoring run.
+    print("[step_b] Rebuilding reference distribution from augmented model...", flush=True)
+    df_pheme = pd.read_csv("data/processed/pheme_cleaned.csv").dropna(subset=["clean_title", "label"])
+    X_ref = df_pheme["clean_title"].tolist()
+    X_ref = X_ref[:2000] if len(X_ref) > 2000 else X_ref
+    aug_model = AutoModelForSequenceClassification.from_pretrained("models/bertweet_augmented")
+    aug_model = aug_model.to(DEVICE).eval()
+    ref_ds = TweetDataset(X_ref, [0] * len(X_ref), tokenizer)
+    ref_loader = DataLoader(ref_ds, batch_size=BATCH_SIZE, shuffle=False, num_workers=0)
+    ref_probs = []
+    with torch.no_grad():
+        for batch in ref_loader:
+            out = aug_model(input_ids=batch["input_ids"].to(DEVICE),
+                           attention_mask=batch["attention_mask"].to(DEVICE))
+            probs = torch.softmax(out.logits, dim=-1)[:, 1].cpu().numpy()
+            ref_probs.extend(probs.tolist())
+    np.save("models/reference_score_distribution.npy", np.array(ref_probs))
+    print(f"[step_b] Reference updated from augmented model ({len(ref_probs)} samples).", flush=True)
 
 
 def step_compare():
