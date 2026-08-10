@@ -63,9 +63,9 @@ jobs:
         run: |
           python src/monitor.py && echo "drift=false" >> $GITHUB_OUTPUT || echo "drift=true" >> $GITHUB_OUTPUT
 
-      - name: Commit Drift Report
+      - name: Commit Drift Report and Monitor State
         run: |
-          git add metrics/drift_report.json
+          git add metrics/drift_report.json metrics/monitor_state.json
           git commit -m "Drift report: $(date -u '+%Y-%m-%d')" || echo "No changes"
           git push
 

@@ -85,24 +85,58 @@ def predict_bertweet(model, tokenizer, device, texts, batch_size=64, max_len=128
 # ── Reference distribution ────────────────────────────────────────────────────
 
 def build_reference_distribution(model, tokenizer, device):
-    """Compute BERTweet predictions on REAL-class PHEME training examples only.
+    """Build reference distribution from the EARLIEST live scraped data.
 
-    Why real-only? Live X is ~99.5% real news. If we build the reference from
-    the full PHEME training split (8:1 real/fake), the reference distribution
-    has a bimodal shape (some probs near 0 for fake, many near 1 for real).
-    The live stream distribution is unimodal (almost all near 1). This shape
-    mismatch produces permanently high PSI even with no concept drift,
-    triggering spurious retraining every day.
+    Why live data instead of PHEME?
+    BERTweet was fine-tuned on PHEME (UK breaking-news tweets, 2014-2017).
+    Even for real-class PHEME examples the model assigns ~10% of them low
+    fake-probability scores (it's uncertain on hard PHEME examples). This
+    creates a *bimodal* reference (10% near 0, 89% near 1). Live 2026 US
+    political tweets get *all* scored near 0.99 (low std), so the bin
+    [0–0.1] has 10.4% in reference vs ~0% in live → PSI ≫ 0.25 every day,
+    even when nothing has changed.
 
-    Using only real-class examples makes the reference match the expected
-    shape of a healthy live stream, so PSI only rises when the model's
-    behaviour on real political tweets genuinely changes.
+    Fix: use the EARLIEST scraped files as the "clean baseline". Those were
+    collected at deployment time, before any concept drift, and come from the
+    same domain (2026 US political Twitter). Reference and live data then
+    share the same distribution shape, so PSI only rises when something real
+    has shifted.
+
+    Falls back to PHEME real-class if no live data is available yet.
     """
+    data_dir = 'data/new_scraped/'
+    # Sort by filename (encodes date YYYYMMDD) so earliest files come first;
+    # skip the accumulation file and any archive sub-directory entries.
+    csv_files = sorted([
+        f for f in os.listdir(data_dir)
+        if f.endswith('.csv') and f != 'all_tweets.csv'
+    ])
+
+    if csv_files:
+        # Use the 10 oldest files as the clean baseline
+        baseline_files = csv_files[:10]
+        dfs = []
+        for fname in baseline_files:
+            df_b = pd.read_csv(os.path.join(data_dir, fname))
+            if 'text' in df_b.columns:
+                dfs.append(df_b[['text']])
+        if dfs:
+            df_baseline = pd.concat(dfs, ignore_index=True).drop_duplicates('text')
+            texts = df_baseline['text'].apply(normalise_tweet).tolist()[:2000]
+            ref_scores = predict_bertweet(model, tokenizer, device, texts)
+            np.save('models/reference_score_distribution.npy', ref_scores)
+            print(
+                f"Reference distribution built from {len(ref_scores)} early live tweets "
+                f"({len(baseline_files)} files: {baseline_files[0]} … {baseline_files[-1]})."
+            )
+            return ref_scores
+
+    # ── Fallback: PHEME real-class only (if no live data yet) ────────────────
+    print("No live scraped data for reference — falling back to PHEME real-class.")
     df = pd.read_csv('data/processed/pheme_cleaned.csv').dropna(
         subset=['clean_title', 'label']
     )
     df['label'] = df['label'].astype(int)
-    # Use only real-class (label=1) training examples to match live X distribution
     df_real = df[df['label'] == 1]
     X_train, _, _, _ = train_test_split(
         df_real['clean_title'].astype(str), df_real['label'],
@@ -269,6 +303,33 @@ def create_augmented_dataset(pseudo_df, output_path='data/processed/pheme_augmen
     return output_path
 
 
+# ── Monitor state (processed-file tracking + retraining cooldown) ─────────────
+
+MONITOR_STATE_PATH = 'metrics/monitor_state.json'
+RETRAIN_COOLDOWN_DAYS = 30   # don't retrain more often than once a month
+
+
+def load_monitor_state():
+    if os.path.exists(MONITOR_STATE_PATH):
+        with open(MONITOR_STATE_PATH) as f:
+            return json.load(f)
+    return {'processed_files': [], 'last_retrain_triggered': None}
+
+
+def save_monitor_state(state):
+    os.makedirs('metrics', exist_ok=True)
+    with open(MONITOR_STATE_PATH, 'w') as f:
+        json.dump(state, f, indent=2)
+
+
+def is_in_retrain_cooldown(state):
+    last = state.get('last_retrain_triggered')
+    if not last:
+        return False
+    last_dt = datetime.fromisoformat(last.replace('Z', ''))
+    return (datetime.utcnow() - last_dt).days < RETRAIN_COOLDOWN_DAYS
+
+
 # ── Main monitoring loop ───────────────────────────────────────────────────────
 
 def run_monitoring():
@@ -280,15 +341,34 @@ def run_monitoring():
         print("Scraped data directory not found — skipping monitoring.")
         sys.exit(0)
 
-    csv_files = [f for f in os.listdir(data_dir) if f.endswith('.csv')]
+    # Sort by FILENAME (date is encoded as YYYYMMDD in the name) so ordering is
+    # stable across fresh git checkouts where all files share the same mtime.
+    # Exclude the cumulative all_tweets.csv — we monitor per-batch files only.
+    csv_files = sorted([
+        f for f in os.listdir(data_dir)
+        if f.endswith('.csv') and f != 'all_tweets.csv'
+    ])
     if not csv_files:
         print("No scraped data found — skipping monitoring.")
         sys.exit(0)
 
-    latest_file = max(
-        [os.path.join(data_dir, f) for f in csv_files],
-        key=os.path.getmtime
-    )
+    # Skip files we've already processed to avoid re-triggering drift on the
+    # same data every day (critical when the scraper has stopped producing
+    # new files, e.g. when X_BEARER_TOKEN expires).
+    state = load_monitor_state()
+    processed = set(state.get('processed_files', []))
+
+    unprocessed = [f for f in csv_files if f not in processed]
+    if not unprocessed:
+        print("All scraped files have already been processed — nothing new to monitor.")
+        print(f"  Total processed: {len(processed)} files, latest: {csv_files[-1]}")
+        print("  If the scraper has stopped, check that X_BEARER_TOKEN is valid.")
+        sys.exit(0)
+
+    # Pick the newest unprocessed file
+    latest_fname = unprocessed[-1]
+    latest_file  = os.path.join(data_dir, latest_fname)
+
     df = pd.read_csv(latest_file)
     # Strip any OOD injection rows (source == "drift_injection") so they
     # never pollute a real monitoring run after the test is done.
@@ -297,7 +377,8 @@ def run_monitoring():
         df = df[df['source'] != 'drift_injection'].reset_index(drop=True)
         if len(df) < n_before:
             print(f"Filtered {n_before - len(df)} OOD injection rows from stream.")
-    print(f"Monitoring on: {latest_file} ({len(df)} tweets)")
+    print(f"Monitoring on: {latest_file} ({len(df)} tweets)  "
+          f"[{len(unprocessed)-1} other unprocessed files queued]")
 
     # 2. Relevancy check — diagnostic only, does NOT trigger retraining
     df['is_relevant'] = df['text'].str.lower().apply(
@@ -334,32 +415,33 @@ def run_monitoring():
     psi_value  = None
     psi_status = None
 
-    processed_path = 'data/processed/pheme_cleaned.csv'
+    def _reference_is_stale(scores):
+        """Detect the PHEME-bimodal reference bug.
+
+        A reference built from mixed PHEME examples has ~10% of values near 0
+        (fake predictions) and ~89% near 1 (real predictions). Live 2026
+        political tweets are almost all near 1, so the [0-0.1] bin mismatch
+        drives PSI to 5+ every day.
+
+        A valid live-data reference should have < 5% of values below 0.5.
+        """
+        frac_below_half = float(np.mean(scores < 0.5))
+        if frac_below_half > 0.05:
+            print(
+                f"  WARNING: reference looks stale/bimodal — "
+                f"{frac_below_half:.1%} of values below 0.5. Rebuilding from live data."
+            )
+            return True
+        return False
+
     if not os.path.exists(ref_path):
-        if not os.path.exists(processed_path):
-            # Download and preprocess PHEME on-the-fly (first run on a fresh runner)
-            print("pheme_cleaned.csv not found — downloading PHEME to build reference distribution...")
-            import subprocess
-            try:
-                subprocess.run([sys.executable, 'src/download_pheme.py'], check=True)
-                subprocess.run([
-                    sys.executable, 'src/preprocessing.py',
-                    '--input',  'data/raw/pheme_tweets.csv',
-                    '--output', 'data/processed/pheme_cleaned.csv',
-                    '--mode',   'tweet',
-                ], check=True)
-                print("PHEME downloaded and preprocessed.")
-            except Exception as e:
-                print(f"PHEME download failed ({e}) — skipping KS/PSI tests.")
-        if os.path.exists(processed_path):
-            print("Building reference distribution (first run)...")
-            ref_scores = build_reference_distribution(model, tokenizer, device)
-        else:
-            print("Reference distribution unavailable — skipping KS/PSI tests.")
-            ref_scores = None
+        print("Reference distribution missing — building from live scraped data...")
+        ref_scores = build_reference_distribution(model, tokenizer, device)
     else:
         ref_scores = np.load(ref_path)
         print(f"Reference distribution loaded: {len(ref_scores)} samples.")
+        if _reference_is_stale(ref_scores):
+            ref_scores = build_reference_distribution(model, tokenizer, device)
 
     if ref_scores is not None:
         ks_result  = ks_test(ref_scores, new_scores)
@@ -403,6 +485,15 @@ def run_monitoring():
         json.dump(drift_report, f, indent=2)
     print("Drift report saved to metrics/drift_report.json")
 
+    # 8. Mark this file as processed so we don't re-analyse it tomorrow.
+    # This replaces the broken os.rename() archive: renaming on a GitHub
+    # Actions runner is pointless because git checkout restores every file
+    # on the next run. Instead, we track which files have been processed in
+    # a JSON state file that IS committed to git.
+    state['processed_files'] = sorted(set(processed) | {latest_fname})
+    # Trim to last 120 entries (4 months) to keep the file small
+    state['processed_files'] = state['processed_files'][-120:]
+
     if drift_triggered:
         reasons = []
         if psi_value is not None and psi_value >= 0.25:
@@ -416,6 +507,20 @@ def run_monitoring():
         print(f"WARNING: Drift detected — {', '.join(reasons)}")
         print(f"{'='*70}")
 
+        # Retraining cooldown — prevent triggering more than once per month.
+        # Without this, every daily monitoring run after a drift event would
+        # kick off a fresh GPU retraining job while the first one is still
+        # running (or hasn't been deployed yet).
+        if is_in_retrain_cooldown(state):
+            last_rt = state.get('last_retrain_triggered', 'unknown')
+            days_since = (datetime.utcnow() - datetime.fromisoformat(last_rt.replace('Z', ''))).days
+            print(
+                f"\n⏳ Retraining cooldown active — last triggered {days_since}d ago "
+                f"(cooldown: {RETRAIN_COOLDOWN_DAYS}d). Skipping retrain trigger."
+            )
+            save_monitor_state(state)
+            sys.exit(1)   # still exit(1) so GitHub output = drift=true, but no retrain
+
         print("\n[Pseudo-Labeling] Generating labels for accumulated tweets...")
         pseudo_df = generate_pseudo_labels(model, tokenizer, device)
 
@@ -427,22 +532,11 @@ def run_monitoring():
             print("\n⚠ Not enough confident predictions for pseudo-labeling.")
             print("  Retraining will proceed on PHEME only.")
 
-        # Archive the current scraped file so next monitoring cycle starts
-        # with a clean stream — prevents the same OOD tweets from
-        # re-triggering drift on every subsequent run.
-        archive_dir = 'data/new_scraped/archive'
-        os.makedirs(archive_dir, exist_ok=True)
-        archive_name = os.path.join(
-            archive_dir,
-            f"archived_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}_"
-            + os.path.basename(latest_file)
-        )
-        os.rename(latest_file, archive_name)
-        print(f"\n✓ Scraped data archived to {archive_name}")
-        print("  Next monitoring cycle will start with a clean stream.")
-
+        state['last_retrain_triggered'] = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+        save_monitor_state(state)
         sys.exit(1)
 
+    save_monitor_state(state)
     print("System STABLE: model performing well on current tweet stream.")
     sys.exit(0)
 
