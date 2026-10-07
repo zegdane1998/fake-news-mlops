@@ -83,8 +83,11 @@
     "news_20260619_1029.csv",
     "news_20260620_0900.csv",
     "news_20260621_0954.csv",
-    "news_20260622_1158.csv"
+    "news_20260622_1158.csv",
+    "news_20260623_0943.csv",
+    "news_20260624_0934.csv",
+    "news_20260625_0925.csv"
   ],
-  "last_retrain_triggered": null,
-  "_note": "Bootstrapped on 2026-08-10 after fixing bimodal reference distribution bug. Oldest 81 files marked processed. Newest 3 files queued for fresh analysis with corrected reference."
+  "last_retrain_triggered": "2026-10-07T12:54:39Z",
+  "_note": "Reset on 2026-10-07. All 87 files marked processed. Cooldown set to Oct 7 retrain attempt (Vast.ai credit issue). Next retrain will be allowed after Nov 6. PSI-only false positive fixed: now requires BOTH KS AND PSI to trigger."
 }
