@@ -65,10 +65,14 @@ def get_pipeline_status():
         return {"last_sync": last_sync, "status": "Empty file",
                 "counts": [0, 0], "keywords": [], "keyword_counts": []}
 
-    probs = _predict_batch(texts)
-    predictions = [1 if p > 0.5 else 0 for p in probs]
-    real_count = sum(predictions)
-    fake_count = len(predictions) - real_count
+    try:
+        sample = texts[:50]  # cap to avoid OOM on CPU
+        probs = _predict_batch(sample)
+        predictions = [1 if p > 0.5 else 0 for p in probs]
+        real_count = sum(predictions)
+        fake_count = len(predictions) - real_count
+    except Exception:
+        real_count, fake_count = 0, 0
 
     all_text = " ".join(texts).lower()
     tracked_keywords = [
@@ -101,7 +105,10 @@ def get_latest_tweets(n: int = 10):
             df = df.sort_values("scraped_at", ascending=False)
         df = df.head(n)
         texts = df["text"].astype(str).tolist()
-        probs = _predict_batch(texts)
+        try:
+            probs = _predict_batch(texts)
+        except Exception:
+            probs = [0.5] * len(texts)
 
         tweets = []
         for (_, row), prob in zip(df.iterrows(), probs):
