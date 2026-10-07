@@ -451,14 +451,19 @@ def run_monitoring():
               f"p={ks_result['p_value']:.4f}  drift={ks_result['drift_detected']}")
         print(f"PSI     : {psi_value:.4f} ({psi_status})")
 
-    # 6. Retraining decision — three conditions from the paper (Section 7.2):
-    #    (a) PSI ≥ 0.25
-    #    (b) KS p < 0.05
-    #    (c) avg confidence < 0.15 for 3+ consecutive days
+    # 6. Retraining decision (Section 7.2 of the paper):
+    #
+    # Require KS AND PSI to both signal drift, OR a 3-day low-confidence streak.
+    # Using OR (KS | PSI) was causing false retraining: PSI is sensitive to
+    # small-sample bin noise and kept reading 1–3 even when KS p > 0.10 (no
+    # statistical drift). KS alone is a more reliable gate; PSI confirms severity.
+    # PSI threshold raised to 1.0 (was 0.25) to reduce false positives from
+    # distributional quirks in small batches (~25 tweets/day).
+    ks_drift   = (ks_result is not None and ks_result['drift_detected'])
+    psi_severe = (psi_value is not None and psi_value >= 1.0)
     drift_triggered = (
-        (psi_value  is not None and psi_value >= 0.25)
-        or (ks_result is not None and ks_result['drift_detected'])
-        or low_conf_streak
+        (ks_drift and psi_severe)   # both tests must agree on significant drift
+        or low_conf_streak           # OR model confidence collapses for 3+ days
     )
 
     # 7. Save drift report
