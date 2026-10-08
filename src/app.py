@@ -76,9 +76,17 @@ def get_pipeline_status():
 
     all_text = " ".join(texts).lower()
     tracked_keywords = [
-        "iran", "airstrike", "nuclear", "sanctions", "tehran",
-        "houthis", "pentagon", "trump", "congress", "missile",
-        "irgc", "persian gulf", "proxy war", "white house", "biden",
+        # Iran / Middle East
+        "iran", "tehran", "irgc", "khamenei", "persian gulf",
+        "hormuz", "strait", "tanker", "warship", "naval",
+        "houthis", "hezbollah", "hamas", "proxy war", "airstrike",
+        # Nuclear
+        "nuclear", "uranium", "enrichment", "jcpoa", "missile",
+        # US Politics
+        "trump", "biden", "harris", "congress", "senate",
+        "pentagon", "white house", "sanctions", "tariff", "ceasefire",
+        # Broader conflict
+        "israel", "gaza", "netanyahu", "oil", "drone",
     ]
     keyword_counts = sorted(
         [(kw, all_text.count(kw)) for kw in tracked_keywords],
