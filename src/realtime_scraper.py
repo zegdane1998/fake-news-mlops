@@ -28,7 +28,7 @@ def _build_query():
     accounts = " OR ".join(f"from:{a}" for a in NEWS_ACCOUNTS)
     # X API query limit is 1024 chars; keywords + accounts + filters
     query = f"({KEYWORDS}) ({accounts}) has:links lang:en -is:retweet -is:reply"
-    if len(query) > 1024:
+    if len(query) > 512:
         # Fallback: accounts-only query without keyword filter
         query = f"({accounts}) has:links lang:en -is:retweet -is:reply"
     return query
