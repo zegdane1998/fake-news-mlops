@@ -392,6 +392,30 @@
       color: var(--muted);
       margin-top: 2rem;
     }
+
+    /* MODEL / DRIFT / CONTROLS */
+    .model-section,.drift-section,.controls-section{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.5rem;margin-bottom:1.5rem;animation:fadeUp .6s ease both;}
+    .perf-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-top:1rem;}
+    @media(max-width:700px){.perf-grid,.drift-grid{grid-template-columns:repeat(2,1fr);}}
+    .perf-card{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:1rem 1.25rem;text-align:center;}
+    .perf-val{font-size:1.6rem;font-weight:800;letter-spacing:-.02em;}
+    .perf-label{font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-top:.25rem;}
+    .perf-bar-wrap{margin-top:.5rem;height:3px;background:var(--border);border-radius:2px;overflow:hidden;}
+    .perf-bar{height:100%;border-radius:2px;}
+    .model-note{font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--muted);margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border);}
+    .drift-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-top:1rem;}
+    .drift-card{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:1rem 1.25rem;}
+    .drift-card-title{font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:.5rem;}
+    .drift-val{font-size:1.4rem;font-weight:800;letter-spacing:-.02em;}
+    .drift-status{font-family:'JetBrains Mono',monospace;font-size:.7rem;margin-top:.25rem;}
+    .ok{color:var(--accent3);}.warn{color:#fbbf24;}.bad{color:var(--fake);}
+    .gauge-wrap{margin-top:.75rem;height:4px;background:var(--border);border-radius:2px;overflow:hidden;}
+    .gauge-fill{height:100%;border-radius:2px;}
+    .controls-row{display:flex;flex-wrap:wrap;gap:.75rem;margin-top:1rem;align-items:center;}
+    .btn.secondary{background:transparent;color:var(--accent);border:1px solid var(--accent);margin-top:0;}
+    .btn.secondary:hover{background:rgba(0,212,255,.08);}
+    .btn.purple{background:#a78bfa;color:#000;margin-top:0;}
+    .retrain-info{font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--muted);margin-top:.75rem;}
   </style>
 </head>
 <body>
@@ -402,7 +426,7 @@
     <div class="logo">
       <div class="logo-icon">🛡</div>
       <div>
-        <div class="logo-text">FakeNewsGuard</div>
+        <div class="logo-text">FakeShield</div>
         <div class="logo-sub">POLITICAL INTELLIGENCE SYSTEM</div>
       </div>
     </div>
@@ -478,6 +502,64 @@
       <div class="section-title">// Top Political Keywords</div>
       <canvas id="barChart"></canvas>
     </div>
+  </div>
+
+
+  <!-- MODEL PERFORMANCE -->
+  {% if metrics %}
+  <div class="model-section">
+    <div class="section-title">// BERTweet Model Performance</div>
+    <div class="perf-grid">
+      <div class="perf-card"><div class="perf-val" style="color:var(--accent)">{{ metrics.accuracy }}%</div><div class="perf-label">Accuracy</div><div class="perf-bar-wrap"><div class="perf-bar" style="width:{{ metrics.accuracy }}%;background:var(--accent)"></div></div></div>
+      <div class="perf-card"><div class="perf-val" style="color:var(--fake)">{{ metrics.f1_fake }}%</div><div class="perf-label">F1-Fake</div><div class="perf-bar-wrap"><div class="perf-bar" style="width:{{ metrics.f1_fake }}%;background:var(--fake)"></div></div></div>
+      <div class="perf-card"><div class="perf-val" style="color:var(--real)">{{ metrics.f1_real }}%</div><div class="perf-label">F1-Real</div><div class="perf-bar-wrap"><div class="perf-bar" style="width:{{ metrics.f1_real }}%;background:var(--real)"></div></div></div>
+      <div class="perf-card"><div class="perf-val" style="color:#a78bfa">{{ metrics.auc_roc }}%</div><div class="perf-label">AUC-ROC</div><div class="perf-bar-wrap"><div class="perf-bar" style="width:{{ metrics.auc_roc }}%;background:#a78bfa"></div></div></div>
+    </div>
+    <div class="model-note">BERTweet (vinai/bertweet-base) fine-tuned on PHEME &middot; Test set: {{ metrics.n_test }} samples &middot; Pseudo-labels: {{ metrics.n_pseudo }}</div>
+  </div>
+  {% endif %}
+
+  <!-- DRIFT MONITOR -->
+  {% if drift %}
+  <div class="drift-section">
+    <div class="section-title">// Drift Monitor &mdash; Latest Report</div>
+    <div class="drift-grid">
+      <div class="drift-card">
+        <div class="drift-card-title">KS Test</div>
+        <div class="drift-val {{ 'bad' if drift.ks_drift else 'ok' }}">{{ 'DRIFT' if drift.ks_drift else 'STABLE' }}</div>
+        <div class="drift-status {{ 'bad' if drift.ks_drift else 'ok' }}">stat={{ drift.ks_stat }} &middot; p={{ drift.ks_p }}</div>
+        <div class="gauge-wrap"><div class="gauge-fill" style="width:{{ [drift.ks_stat * 200, 100] | min }}%;background:{{ '#ff4d6d' if drift.ks_drift else '#39ff7e' }}"></div></div>
+      </div>
+      <div class="drift-card">
+        <div class="drift-card-title">PSI Value</div>
+        {% set psi_color = '#ff4d6d' if drift.psi >= 1.0 else ('#fbbf24' if drift.psi >= 0.25 else '#39ff7e') %}
+        <div class="drift-val" style="color:{{ psi_color }}">{{ drift.psi }}</div>
+        <div class="drift-status" style="color:{{ psi_color }}">{{ drift.psi_status }}</div>
+        <div class="gauge-wrap"><div class="gauge-fill" style="width:{{ [drift.psi / 3 * 100, 100] | min }}%;background:{{ psi_color }}"></div></div>
+      </div>
+      <div class="drift-card">
+        <div class="drift-card-title">Avg Confidence</div>
+        <div class="drift-val {{ 'ok' if drift.avg_conf > 70 else 'warn' }}">{{ drift.avg_conf }}%</div>
+        <div class="drift-status {{ 'ok' if drift.avg_conf > 70 else 'warn' }}">{{ drift.n_articles }} articles &middot; streak {{ drift.streak }}d</div>
+        <div class="gauge-wrap"><div class="gauge-fill" style="width:{{ drift.avg_conf }}%;background:{{ '#39ff7e' if drift.avg_conf > 70 else '#fbbf24' }}"></div></div>
+      </div>
+    </div>
+    <div class="model-note">Retrain triggered: {{ 'YES' if drift.retrain else 'NO' }} &middot; Report: {{ drift.timestamp[:10] if drift.timestamp else 'N/A' }} &middot; Requires BOTH KS drift AND PSI &ge; 1.0</div>
+  </div>
+  {% endif %}
+
+  <!-- PIPELINE CONTROLS -->
+  <div class="controls-section">
+    <div class="section-title">// Pipeline Controls</div>
+    <div class="controls-row">
+      <a class="btn secondary" href="https://github.com/zegdane1998/fake-news-mlops/actions/workflows/scrape_and_monitor.yml" target="_blank">&#x1F504; Trigger Scrape &amp; Monitor</a>
+      <a class="btn secondary" href="https://github.com/zegdane1998/fake-news-mlops/actions/workflows/retrain_vastai.yml" target="_blank">&#x1F680; Trigger Retraining</a>
+      <a class="btn purple" href="http://localhost:5000" target="_blank">&#x1F4CA; Open MLflow UI</a>
+      <a class="btn secondary" href="https://huggingface.co/abdellahzegdane/fakeshield-bertweet" target="_blank">&#x1F917; HF Hub Model</a>
+    </div>
+    {% if monitor %}
+    <div class="retrain-info">Files processed: {{ monitor.n_files }} &middot; Last retrain: {{ monitor.last_retrain }} &middot; 30-day cooldown applies</div>
+    {% endif %}
   </div>
 
   <!-- KEYWORDS -->

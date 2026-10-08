@@ -1,5 +1,5 @@
+import json
 import os
-import pickle
 from datetime import datetime
 
 import pandas as pd
@@ -66,7 +66,7 @@ def get_pipeline_status():
                 "counts": [0, 0], "keywords": [], "keyword_counts": []}
 
     try:
-        sample = texts[:50]  # cap to avoid OOM on CPU
+        sample = texts[:50]
         probs = _predict_batch(sample)
         predictions = [1 if p > 0.5 else 0 for p in probs]
         real_count = sum(predictions)
@@ -119,6 +119,7 @@ def get_latest_tweets(n: int = 10):
                 "source": row.get("source", "NewsAPI"),
                 "verdict": "Real" if prob > 0.5 else "Fake",
                 "conf": f"{conf * 100:.1f}%",
+                "conf_num": round(conf * 100, 1),
             })
         return tweets
     except Exception as e:
@@ -126,24 +127,81 @@ def get_latest_tweets(n: int = 10):
         return []
 
 
+def get_model_metrics():
+    path = "metrics/retraining_comparison.json"
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path) as f:
+            d = json.load(f)
+        m = d.get("pheme_only", {})
+        return {
+            "accuracy": round(m.get("accuracy", 0) * 100, 2),
+            "f1_fake":  round(m.get("f1_fake", 0) * 100, 2),
+            "f1_real":  round(m.get("f1_real", 0) * 100, 2),
+            "auc_roc":  round(m.get("auc_roc", 0) * 100, 2),
+            "n_test":   d.get("n_test", 0),
+            "n_pseudo": d.get("n_pseudo_labels", 0),
+        }
+    except Exception:
+        return None
+
+
+def get_drift_status():
+    path = "metrics/drift_report.json"
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path) as f:
+            d = json.load(f)
+        ks = d.get("ks_test", {})
+        psi = d.get("psi", {})
+        return {
+            "timestamp":    d.get("timestamp", ""),
+            "n_articles":   d.get("n_articles", 0),
+            "avg_conf":     round(d.get("avg_confidence", 0) * 100, 1),
+            "ks_stat":      round(ks.get("ks_statistic", 0), 4),
+            "ks_p":         round(ks.get("p_value", 0), 4),
+            "ks_drift":     ks.get("drift_detected", False),
+            "psi":          round(psi.get("value", 0), 4),
+            "psi_status":   psi.get("status", "STABLE"),
+            "retrain":      d.get("retrain_needed", False),
+            "streak":       d.get("low_conf_streak_days", 0),
+        }
+    except Exception:
+        return None
+
+
+def get_monitor_state():
+    path = "metrics/monitor_state.json"
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path) as f:
+            d = json.load(f)
+        last = d.get("last_retrain_triggered", "")
+        n_files = len(d.get("processed_files", []))
+        return {"last_retrain": last[:10] if last else "Never", "n_files": n_files}
+    except Exception:
+        return None
+
+
 @app.get("/")
 async def home(request: Request):
     pipeline = get_pipeline_status()
     tweets = get_latest_tweets()
     return templates.TemplateResponse("index.html", {
-        "request": request,
+        "request":  request,
         "last_sync": pipeline["last_sync"],
-        "status": pipeline["status"],
-        "region": "United States",
-        "stats": {
-            "labels": ["Real", "Fake"],
-            "counts": pipeline["counts"],
-            "keywords": pipeline["keywords"],
-            "keyword_counts": pipeline["keyword_counts"],
-        },
-        "tweets": tweets,
-        "result": None,
+        "status":   pipeline["status"],
+        "region":   "United States",
+        "stats":    pipeline,
+        "tweets":   tweets,
+        "result":   None,
         "headline": None,
+        "metrics":  get_model_metrics(),
+        "drift":    get_drift_status(),
+        "monitor":  get_monitor_state(),
     })
 
 
@@ -156,17 +214,15 @@ async def analyze(request: Request, headline: str = Form(...)):
     pipeline = get_pipeline_status()
     tweets = get_latest_tweets()
     return templates.TemplateResponse("index.html", {
-        "request": request,
-        "result": result,
+        "request":  request,
+        "result":   result,
         "headline": headline,
         "last_sync": pipeline["last_sync"],
-        "status": pipeline["status"],
-        "region": "United States",
-        "stats": {
-            "labels": ["Real", "Fake"],
-            "counts": pipeline["counts"],
-            "keywords": pipeline["keywords"],
-            "keyword_counts": pipeline["keyword_counts"],
-        },
-        "tweets": tweets,
+        "status":   pipeline["status"],
+        "region":   "United States",
+        "stats":    pipeline,
+        "tweets":   tweets,
+        "metrics":  get_model_metrics(),
+        "drift":    get_drift_status(),
+        "monitor":  get_monitor_state(),
     })
