@@ -137,7 +137,7 @@ push_status "Vast.ai: comparison experiment done $(date -u '+%H:%M')"
 
 echo "=== [6/6] Push final results to GitHub ==="
 git fetch origin master
-git rebase origin/master
+git rebase --autostash origin/master
 
 git add \
     metrics/bertweet_pheme_only.json \
