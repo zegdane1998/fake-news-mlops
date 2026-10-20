@@ -99,7 +99,8 @@
     "news_20261016_1054.csv",
     "news_20261017_1018.csv",
     "news_20261018_1033.csv",
-    "news_20261019_1224.csv"
+    "news_20261019_1224.csv",
+    "news_20261020_1103.csv"
   ],
   "last_retrain_triggered": "2026-10-07T12:54:39Z",
   "_note": "Reset on 2026-10-07. All 87 files marked processed. Cooldown set to Oct 7 retrain attempt (Vast.ai credit issue). Next retrain will be allowed after Nov 6. PSI-only false positive fixed: now requires BOTH KS AND PSI to trigger."
