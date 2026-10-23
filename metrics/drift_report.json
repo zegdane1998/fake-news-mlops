@@ -1,18 +1,18 @@
 {
-  "timestamp": "2026-10-22T11:20:30Z",
-  "source_file": "data/new_scraped/news_20261022_1120.csv",
+  "timestamp": "2026-10-23T11:11:28Z",
+  "source_file": "data/new_scraped/news_20261023_1111.csv",
   "n_articles": 25,
-  "relevancy_rate": 0.2,
-  "avg_confidence": 0.3886,
-  "pred_std": 0.1927,
+  "relevancy_rate": 0.36,
+  "avg_confidence": 0.4275,
+  "pred_std": 0.1159,
   "low_conf_streak_days": 0,
   "ks_test": {
-    "ks_statistic": 0.248,
-    "p_value": 0.1064,
+    "ks_statistic": 0.2438,
+    "p_value": 0.1169,
     "drift_detected": false
   },
   "psi": {
-    "value": 0.3991,
+    "value": 1.1521,
     "status": "SIGNIFICANT",
     "thresholds": {
       "stable": 0.1,
