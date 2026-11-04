@@ -1,25 +1,25 @@
 {
   "pheme_only": {
-    "accuracy": 0.9607,
-    "f1_macro": 0.9,
-    "f1_fake": 0.8221,
-    "f1_real": 0.9779,
-    "auc_roc": 0.9615
+    "accuracy": 0.9581,
+    "f1_macro": 0.8907,
+    "f1_fake": 0.8049,
+    "f1_real": 0.9765,
+    "auc_roc": 0.9588
   },
   "augmented": {
-    "accuracy": 0.9581,
-    "f1_macro": 0.8831,
-    "f1_fake": 0.7895,
-    "f1_real": 0.9767,
-    "auc_roc": 0.9583
+    "accuracy": 0.9616,
+    "f1_macro": 0.8991,
+    "f1_fake": 0.8197,
+    "f1_real": 0.9785,
+    "auc_roc": 0.9596
   },
   "delta": {
-    "accuracy": -0.0026,
-    "f1_macro": -0.0169,
-    "f1_fake": -0.0326,
-    "f1_real": -0.0012,
-    "auc_roc": -0.0032
+    "accuracy": 0.0035,
+    "f1_macro": 0.0084,
+    "f1_fake": 0.0148,
+    "f1_real": 0.002,
+    "auc_roc": 0.0008
   },
-  "n_pseudo_labels": 20,
+  "n_pseudo_labels": 137,
   "n_test": 1146
 }
